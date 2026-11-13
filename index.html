@@ -21,11 +21,17 @@ h2{color:var(--gold);font-size:24px;margin-top:34px}
 .bt{display:block;background:var(--gold);color:#241a04;border-radius:10px;padding:8px;text-align:center;margin-top:8px;font-weight:700}
 .n{background:#3a2b0a;border-radius:12px;padding:12px;margin-top:20px}
 a{color:#ffd37a}
+.ch b{color:var(--gold)}
+.ch small{display:block;color:#aab;font-size:15px}
+.ch a.bt{display:inline-block;padding:8px 16px}
+a:focus-visible,.bt:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.sk{position:absolute;left:-999px}.sk:focus{left:8px;top:8px;background:#fff;color:#000;padding:8px;z-index:9}
 footer{text-align:center;margin:40px 0 20px;font-size:15px;color:#aab}
 </style>
 </head>
 <body>
-<div class="w">
+<a class="sk" href="#main">মূল অংশে যান</a>
+<div class="w" id="main">
 <header>
 <svg width="140" height="140" viewBox="0 0 512 512" role="img" aria-label="মনের আলো লোগো">
 <defs><radialGradient id="g" cx="50%" cy="38%" r="75%"><stop offset="0" stop-color="#1b2a55"/><stop offset="1" stop-color="#080d1c"/></radialGradient>
@@ -51,3 +57,47 @@ footer{text-align:center;margin:40px 0 20px;font-size:15px;color:#aab}
 <div class="c">
 <b>ব্যবহারের নিয়ম:</b> প্রথম ৫টি সেশন বিনামূল্যে। এরপর একটি বিজ্ঞাপন দেখলে ১০ কয়েন মেলে, প্রতি সেশনে ১ কয়েন লাগে। বের হওয়ার সময় আপনি ১ থেকে ৫ স্টার দিয়ে মতামত জানাতে পারেন।
 </div>
+<div class="n"><b>সতর্কতা:</b> এটি একটি সহায়ক হাতিয়ার মাত্র। এটি সাদা ছড়ির বিকল্প নয়। চলাচলের সময় নিরাপত্তার জন্য সবসময় সাদা ছড়ি বা অন্য নিরাপদ উপায় ব্যবহার করুন। অ্যাপ ভুলও করতে পারে।</div>
+<h2>শীঘ্রই আসছে</h2>
+<div class="c">বাজারদর, ব্লুটুথ স্কেল, সেলফি মোড ও আরও ভাষা।</div>
+<h2>ডাউনলোড</h2>
+<div id="dl"><div class="c">লোড হচ্ছে...</div></div>
+<h2>আমাদের চ্যানেল</h2>
+<p>আমাদের সাথে থাকুন, নতুন কিছু শিখুন, আনন্দ ভাগ করে নিন। আপনার একটা সাবস্ক্রাইব আমাদের এগিয়ে চলার সবচেয়ে বড় শক্তি।</p>
+<div id="ch" class="g"><div class="c">লোড হচ্ছে...</div></div>
+<h2>যোগাযোগ</h2>
+<div class="c" id="ct">লোড হচ্ছে...</div>
+<noscript><div class="n">এই পাতার ডাউনলোড, চ্যানেল ও যোগাযোগের অংশ দেখতে জাভাস্ক্রিপ্ট চালু করুন।</div></noscript>
+<footer>© মনের আলো (Light of Mind)</footer>
+</div>
+<script>
+(function(){
+var ok=function(u){return /^(https:\/\/|mailto:)/.test(String(u||""))};
+var el=function(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+function link(c,url,txt){var a=el("a",c,txt);a.href=url;if(url.indexOf("http")===0){a.target="_blank";a.rel="noopener noreferrer"}return a}
+function fail(id){var b=document.getElementById(id);if(b){b.textContent="";b.appendChild(el("div","c","এই অংশ এখন লোড করা যাচ্ছে না। একটু পরে পাতাটি আবার খুলুন।"))}}
+function show(d){
+ var dl=document.getElementById("dl");dl.textContent="";
+ (d.downloads||[]).forEach(function(x){
+  if(!ok(x.url))return;
+  var c=el("div","c");c.appendChild(el("b","",x.name||""));c.appendChild(el("div","",x.description||""));
+  c.appendChild(link("bt",x.url,x.button||"ডাউনলোড"));dl.appendChild(c)});
+ if(!dl.firstChild)dl.appendChild(el("div","c","ডাউনলোড লিংক শীঘ্রই দেওয়া হবে।"));
+ var ch=document.getElementById("ch");ch.textContent="";
+ (d.channels||[]).forEach(function(x){
+  if(!ok(x.url))return;
+  var c=el("div","ph ch");c.appendChild(el("b","",x.name||""));
+  c.appendChild(el("small","",(x.platform||"")+(x.owner?" · "+x.owner:"")));
+  c.appendChild(el("div","",x.description||""));
+  c.appendChild(link("bt",x.url,"দেখুন: "+(x.name||"")));ch.appendChild(c)});
+ var ct=document.getElementById("ct");ct.textContent="";
+ var k=d.contact||{};
+ ct.appendChild(document.createTextNode(k.text||""));
+ if(ok("mailto:"+(k.email||""))&&k.email){ct.appendChild(el("br"));ct.appendChild(document.createTextNode("ইমেইল: "));ct.appendChild(link("","mailto:"+k.email,k.email))}
+ ct.appendChild(el("br"));ct.appendChild(link("","privacy.html","গোপনীয়তা নীতি"));
+}
+fetch("links.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(show).catch(function(){fail("dl");fail("ch");fail("ct")});
+})();
+</script>
+</body>
+</html>
