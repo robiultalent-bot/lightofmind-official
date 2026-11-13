@@ -27,6 +27,16 @@ a{color:#ffd37a}
 a:focus-visible,.bt:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .sk{position:absolute;left:-999px}.sk:focus{left:8px;top:8px;background:#fff;color:#000;padding:8px;z-index:9}
 footer{text-align:center;margin:40px 0 20px;font-size:15px;color:#aab}
+
+.fb{position:fixed;right:16px;bottom:16px;z-index:50;background:var(--gold);color:#241a04;border:0;border-radius:30px;padding:14px 20px;font:700 17px inherit;font-family:inherit;box-shadow:0 4px 14px #000a}
+.ap{position:fixed;right:10px;bottom:76px;left:10px;max-width:420px;margin-left:auto;z-index:50;background:#0c1328;border:2px solid #2a3a6b;border-radius:18px;padding:12px;display:none}
+.ap.on{display:block}
+.al{max-height:45vh;overflow:auto;font-size:16px}
+.al div{margin:6px 0;padding:8px 10px;border-radius:10px;background:#131c36}
+.al .u{background:#3a2b0a}
+.ap input,.cap input{width:100%;font:inherit;padding:10px;border-radius:10px;border:2px solid #2a3a6b;background:#080d1c;color:var(--tx);margin-top:8px}
+.ap button,.cap button,.eb{font:inherit;font-weight:700;background:var(--gold);color:#241a04;border:0;border-radius:10px;padding:10px 14px;margin:8px 8px 0 0}
+.fb:focus-visible,.ap button:focus-visible,.cap button:focus-visible,.eb:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2px}
 </style>
 </head>
 <body>
@@ -93,9 +103,77 @@ function show(d){
  var ct=document.getElementById("ct");ct.textContent="";
  var k=d.contact||{};
  ct.appendChild(document.createTextNode(k.text||""));
- if(ok("mailto:"+(k.email||""))&&k.email){ct.appendChild(el("br"));ct.appendChild(document.createTextNode("ইমেইল: "));ct.appendChild(link("","mailto:"+k.email,k.email))}
+ ct.appendChild(el("br"));ct.appendChild(emailBox());
  ct.appendChild(el("br"));ct.appendChild(link("","privacy.html","গোপনীয়তা নীতি"));
 }
+
+var EM="cm9iaW9sLnRhbGVudGJvdEBnbWFpbC5jb20=";
+var BN="০১২৩৪৫৬৭৮৯";
+function bn(n){return String(n).replace(/\d/g,function(d){return BN[d]})}
+function norm(s){return String(s||"").replace(/[০-৯]/g,function(d){return BN.indexOf(d)}).replace(/\D/g,"")}
+function emailBox(){
+ var box=el("div","cap");
+ var b=el("button","eb","📧 ইমেইল দেখুন (ক্যাপচা)");b.type="button";box.appendChild(b);
+ b.onclick=function(){
+  b.remove();
+  var a=1+Math.floor(Math.random()*9),c=1+Math.floor(Math.random()*9),sum=a+c;
+  var q=bn(a)+" + "+bn(c)+" = ?";
+  var qs=el("div","",q);qs.id="cq";
+  var lab=el("label","","উত্তর লিখুন: "+q);lab.setAttribute("for","ca");
+  var inp=el("input");inp.id="ca";inp.setAttribute("inputmode","numeric");inp.setAttribute("autocomplete","off");
+  var sp=el("button","","🔊 প্রশ্ন শুনুন");sp.type="button";
+  var ok1=el("button","","যাচাই করুন");ok1.type="button";
+  var msg=el("div","");msg.setAttribute("role","status");msg.setAttribute("aria-live","polite");
+  sp.onclick=function(){
+   if(!window.speechSynthesis){msg.textContent="এই ব্রাউজারে পড়ে শোনানো যায় না। প্রশ্নটি পড়ে নিন: "+q;return}
+   var u=new SpeechSynthesisUtterance(a+" plus "+c+" equals? "+"");u.lang="en-US";
+   speechSynthesis.cancel();speechSynthesis.speak(u)};
+  ok1.onclick=function(){
+   if(Number(norm(inp.value))===sum&&norm(inp.value)!==""){
+    var m=atob(EM);
+    box.textContent="";box.appendChild(document.createTextNode("ইমেইল: "));
+    box.appendChild(link("","mailto:"+m,m));
+    var cp=el("button","","কপি করুন");cp.type="button";
+    var st=el("div","");st.setAttribute("role","status");st.setAttribute("aria-live","polite");
+    cp.onclick=function(){try{navigator.clipboard.writeText(m).then(function(){st.textContent="কপি হয়েছে"},function(){st.textContent="কপি করা যায়নি"})}catch(e){st.textContent="কপি করা যায়নি"}};
+    box.appendChild(el("br"));box.appendChild(cp);box.appendChild(st);
+   }else{msg.textContent="উত্তর ভুল হয়েছে। আবার চেষ্টা করুন।";inp.value="";inp.focus()}};
+  box.appendChild(lab);box.appendChild(inp);box.appendChild(sp);box.appendChild(ok1);box.appendChild(msg);
+  inp.focus();
+ };
+ return box;
+}
+/* assistant */
+var API="https://script.google.com/macros/s/AKfycbx1MJw7ZPlxD9oY9L7xz-QrxUYIWPXrElFNPdy-wXzqC6VlGLJ05Y5auSI9o4dc7gr_/exec",H=[],busy=false;
+var fb=el("button","fb","💬 সহকারী");fb.type="button";fb.setAttribute("aria-expanded","false");
+var ap=el("div","ap");ap.setAttribute("role","dialog");ap.setAttribute("aria-label","মনের আলো সহকারী");
+var al=el("div","al");al.setAttribute("role","log");al.setAttribute("aria-live","polite");
+var ai=el("input");ai.setAttribute("aria-label","আপনার প্রশ্ন");ai.placeholder="প্রশ্ন লিখুন...";ai.maxLength=300;
+var as=el("button","","পাঠান");as.type="button";
+var am=el("button","","🎤 বলে প্রশ্ন");am.type="button";var asp=el("button","","🔊 শুনুন");asp.type="button";var ast=el("button","","⏹ থামান");ast.type="button";var last="";
+var ax=el("button","","বন্ধ করুন");ax.type="button";
+ap.appendChild(al);ap.appendChild(ai);ap.appendChild(as);ap.appendChild(am);ap.appendChild(asp);ap.appendChild(ast);ap.appendChild(ax);
+function say(t){try{if(!window.speechSynthesis)return;speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.lang="bn-BD";speechSynthesis.speak(u)}catch(e){}}
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SR)am.style.display="none";
+am.onclick=function(){try{var r=new SR();r.lang="bn-BD";r.onresult=function(e){ai.value=e.results[0][0].transcript;send()};r.onerror=function(){add("মাইক্রোফোন চালু করা যায়নি। অনুমতি দিন বা লিখে প্রশ্ন করুন।")};r.start()}catch(e){add("এই ব্রাউজারে বলে প্রশ্ন করা যাচ্ছে না। লিখে করুন।")}};
+asp.onclick=function(){if(last)say(last)};
+ast.onclick=function(){try{speechSynthesis.cancel()}catch(e){}};
+function add(t,u){var d=el("div",u?"u":"",t);al.appendChild(d);al.scrollTop=al.scrollHeight}
+function openA(o){ap.classList.toggle("on",o);fb.setAttribute("aria-expanded",o?"true":"false");if(o){if(!al.firstChild)add("আসসালামু আলাইকুম। আমি মনের আলো সহকারী। অ্যাপ, টিম ও চ্যানেল সম্পর্কে জিজ্ঞাসা করুন।");ai.focus()}else fb.focus()}
+fb.onclick=function(){openA(!ap.classList.contains("on"))};ax.onclick=function(){openA(false)};
+ap.addEventListener("keydown",function(e){if(e.key==="Escape")openA(false)});
+async function send(){
+ var t=ai.value.trim();if(!t||busy)return;ai.value="";add(t,1);H.push({role:"user",text:t});busy=true;
+ try{
+  var r=await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({messages:H.slice(-8)})});
+  var d=await r.json();var a=d.reply||"এখন উত্তর দিতে পারছি না। একটু পরে আবার চেষ্টা করুন।";
+  add(a);last=a;H.push({role:"model",text:a});
+ }catch(e){add("সংযোগ হয়নি। ইন্টারনেট দেখে আবার চেষ্টা করুন।")}
+ busy=false;
+}
+as.onclick=send;ai.addEventListener("keydown",function(e){if(e.key==="Enter")send()});
+document.body.appendChild(ap);document.body.appendChild(fb);
 fetch("links.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(show).catch(function(){fail("dl");fail("ch");fail("ct")});
 })();
 </script>
