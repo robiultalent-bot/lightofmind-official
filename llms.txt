@@ -1,0 +1,12 @@
+# Light of Mind (Bengali: Moner Alo)
+
+> Light of Mind is a free Bengali audio-therapy game and assistive Android app for blind and visually impaired people. It helps with recognising money, reading English text, scanning barcodes and recognising people, and is fully usable with TalkBack.
+
+Developed by team Blind Talent. Main developer: Md Robiul Islam Hawlader (a blind developer). Partner: H. M. Samrat.
+
+## Links
+- [Website](https://robiultalent-bot.github.io/lightofmind-official/): app description, downloads, channels, contact
+- [Project facts](https://robiultalent-bot.github.io/lightofmind-official/knowledge.txt): detailed plain-text information about the app and team
+- [Channel data](https://robiultalent-bot.github.io/lightofmind-official/links.json): official channels and download links
+- [Download](https://github.com/robiultalent-bot/lightofmind-official/releases/latest): latest Android app
+- [Blind Talent on YouTube](https://www.youtube.com/@BLIND_TALENT_OFFICIAL)
