@@ -1,0 +1,44 @@
+{
+  "channels": [
+    {
+      "name": "ব্লাইন্ড ট্যালেন্ট অফিশিয়াল",
+      "platform": "ইউটিউব",
+      "owner": "এমডি রবিউল ইসলাম হাওলাদার",
+      "description": "মূল ডেভেলপার এমডি রবিউল ইসলাম হাওলাদারের চ্যানেল। বাউল গানসহ আমাদের নানা প্রতিভা ও সৃষ্টি এখানে।",
+      "url": "https://www.youtube.com/@BLIND_TALENT_OFFICIAL"
+    },
+    {
+      "name": "হালাল ফান টিভি ১৯",
+      "platform": "ইউটিউব",
+      "owner": "এইচ. এম. সম্রাট",
+      "description": "পার্টনার এইচ. এম. সম্রাটের চ্যানেল। হালাল বিনোদনের জন্য সাবস্ক্রাইব করুন।",
+      "url": "https://youtube.com/@officialhalalfuntv19"
+    },
+    {
+      "name": "ইমোশনাল ভয়েস ২৬",
+      "platform": "ইউটিউব",
+      "owner": "এইচ. এম. সম্রাট",
+      "description": "পার্টনার এইচ. এম. সম্রাটের চ্যানেল। নতুন ভিডিও পেতে সাবস্ক্রাইব করুন।",
+      "url": "https://youtube.com/@emotionalvoice26"
+    },
+    {
+      "name": "টেলিগ্রাম চ্যানেল",
+      "platform": "টেলিগ্রাম",
+      "owner": "এইচ. এম. সম্রাট",
+      "description": "পার্টনার এইচ. এম. সম্রাটের টেলিগ্রাম চ্যানেল। আমাদের সাথে সরাসরি যুক্ত থাকুন।",
+      "url": "https://t.me/hlft19"
+    }
+  ],
+  "downloads": [
+    {
+      "name": "মনের আলো (Android অ্যাপ)",
+      "description": "গিটহাব থেকে সর্বশেষ সংস্করণ ডাউনলোড করুন।",
+      "button": "⬇ অ্যাপ ডাউনলোড করুন",
+      "url": "https://github.com/robiultalent-bot/lightofmind-official/releases/latest"
+    }
+  ],
+  "contact": {
+    "text": "তৈরি করেছেন: এমডি রবিউল ইসলাম হাওলাদার (মূল ডেভেলপার) ও এইচ. এম. সম্রাট (পার্টনার)",
+    "email": "robiol.talentbot@gmail.com"
+  }
+}
