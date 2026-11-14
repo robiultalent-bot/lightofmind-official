@@ -58,6 +58,8 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
 
 <h2>লাইভ</h2>
 <div class="c">
+ <div id="lvb" role="status" aria-live="polite"><b>লাইভ বন্ধ আছে।</b></div>
+ <div id="lvv"></div>
  <div id="pinbox" hidden>
   <label for="pin">ক্রিয়েটর পিন</label>
   <input id="pin" type="password" autocomplete="off">
@@ -238,7 +240,7 @@ $("am").onchange=function(){
    for(i=0;i<n;i++){var w=Math.random()*2-1;last=(last+0.02*w)/1.02;a[i]=last*3.5}
    var src=ac.createBufferSource();src.buffer=buf;src.loop=true;
    var f=ac.createBiquadFilter();f.type="lowpass";f.frequency.value=400;
-   var g=ac.createGain();g.gain.value=0.04;
+   var g=ac.createGain();g.gain.value=0.1;
    src.connect(f);f.connect(g);g.connect(ac.destination);src.start();amb=src;
   }else if(amb){amb.stop();amb=null}
  }catch(e){say("পরিবেশের শব্দ চালু করা যায়নি।")}
@@ -513,14 +515,14 @@ function startVoice(){
  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(st){
   var c=new AudioContext();LV.ctx=c;LV.mic=st;
   LV.dest=c.createMediaStreamDestination();
-  LV.micGain=c.createGain();c.createMediaStreamSource(st).connect(LV.micGain);LV.micGain.connect(LV.dest);
+  LV.micGain=c.createGain();var ms=c.createMediaStreamSource(st);ms.connect(LV.micGain);LV.micGain.connect(LV.dest);LV.an=c.createAnalyser();LV.an.fftSize=1024;ms.connect(LV.an);
   LV.gGain=c.createGain();LV.gGain.connect(LV.dest);
   /* শান্ত স্টুডিও পরিবেশের শব্দ কণ্ঠের সাথে মিশে সবার কাছে যায় */
   var n=c.sampleRate*2,buf=c.createBuffer(1,n,c.sampleRate),a=buf.getChannelData(0),last=0,i;
   for(i=0;i<n;i++){var w=Math.random()*2-1;last=(last+0.02*w)/1.02;a[i]=last*3.5}
   var src=c.createBufferSource();src.buffer=buf;src.loop=true;
   var f=c.createBiquadFilter();f.type="lowpass";f.frequency.value=380;
-  var g=c.createGain();g.gain.value=0.035;
+  var g=c.createGain();g.gain.value=0.1;
   src.connect(f);f.connect(g);g.connect(LV.dest);src.start();LV.amb=src;
   LV.on=true;
   say("মাইক চালু। শ্রোতারা আপনার কণ্ঠ শুনবে। ইয়ারফোন লাগিয়ে রাখুন।");
@@ -577,7 +579,7 @@ function stopVoice(){
  LV.peers={};LV.seen={};LV.gq={};$("gq").textContent="";
  try{if(LV.mic)LV.mic.getTracks().forEach(function(t){t.stop()})}catch(e){}
  try{if(LV.ctx)LV.ctx.close()}catch(e){}
- LV.mic=null;LV.ctx=null;LV.micGain=null;
+ LV.mic=null;LV.ctx=null;LV.micGain=null;LV.an=null;
  jdel("");
 }
 
@@ -591,6 +593,7 @@ function joinLive(stream){
  pc.ontrack=function(e){
   var s=e.streams[0];if(!s)return;
   var a=$("la");a.srcObject=s;a.play().catch(function(){});
+  try{var lc=new (window.AudioContext||window.webkitAudioContext)();LV.lctx=lc;LV.lan=lc.createAnalyser();LV.lan.fftSize=1024;lc.createMediaStreamSource(s).connect(LV.lan)}catch(x){}
   LV.tries=0;say(guest?"আপনি এখন লাইভে কথা বলছেন।":"লাইভ কণ্ঠ যুক্ত হয়েছে। সঞ্চালককে শুনতে পাবেন।");
  };
  pc.onconnectionstatechange=function(){if(pc.connectionState==="failed"){leaveLive()}};
@@ -616,10 +619,13 @@ function leaveLive(){
  if(LV.lid)jdel("req/"+LV.lid);
  LV.pc=null;LV.lid="";
  try{$("la").srcObject=null}catch(e){}
+ try{if(LV.lctx)LV.lctx.close()}catch(e){}
+ LV.lan=null;LV.lctx=null;
 }
 function liveWatch(d){
  if(isCreator)return;
  var on=d&&d.live&&d.mode!=="off"&&Date.now()-(d.beat||0)<60000;
+ LV.remote=!!on;
  if(on){
   $("gj").hidden=!(window.RTCPeerConnection);
   if(started&&!LV.pc)joinLive(null);
@@ -632,6 +638,31 @@ $("gj").onclick=function(){
   say("অনুরোধ পাঠানো হয়েছে। সঞ্চালক অনুমোদন দিলে কথা বলতে পারবেন। ইয়ারফোন লাগান।");
  }).catch(function(){say("মাইকের অনুমতি পাওয়া যায়নি।")});
 };
+
+
+/* লাইভ চলছে কিনা আর কণ্ঠ পৌঁছাচ্ছে কিনা তার সূচক */
+LV.an=null;LV.lan=null;LV.remote=false;LV.lastBadge="";
+function level(an){
+ if(!an)return 0;
+ var d=new Uint8Array(an.fftSize);an.getByteTimeDomainData(d);
+ var s=0,i;for(i=0;i<d.length;i++){var v=(d[i]-128)/128;s+=v*v}
+ return Math.sqrt(s/d.length);
+}
+setInterval(function(){
+ var t="লাইভ বন্ধ আছে।",v="";
+ if(LV.on){
+  var c=0;Object.keys(LV.peers).forEach(function(k){if(LV.peers[k].connectionState==="connected")c++});
+  var mic=LV.micGain&&LV.micGain.gain.value>0;
+  t="🔴 লাইভ চলছে। সংযুক্ত শ্রোতা: "+bnum(c)+" জন। "+(mic?"মাইক চালু।":"মাইক বন্ধ, ব্রেক চলছে।");
+  if(mic&&LV.an)v=level(LV.an)>0.02?"🎙️ আপনার কণ্ঠ যাচ্ছে।":"🔇 কোনো কণ্ঠ ধরা পড়ছে না। মাইকের কাছে কথা বলুন।";
+ }else if(LV.pc&&LV.pc.connectionState==="connected"){
+  t="🔴 লাইভ চলছে। আপনি সংযুক্ত আছেন।";
+  v=LV.lan?(level(LV.lan)>0.01?"🔊 সঞ্চালকের কণ্ঠ আসছে।":"🔈 সংযুক্ত, এখন নীরব বা শুধু স্টুডিওর শব্দ।"):"";
+ }else if(LV.remote)t="🔴 লাইভ চলছে। কণ্ঠের সাথে সংযোগ হচ্ছে...";
+ var b=$("lvb");
+ if(t!==LV.lastBadge){LV.lastBadge=t;b.textContent="";b.appendChild(el("b",t))}
+ $("lvv").textContent=v;
+},1000);
 
 /* ===== লাইভ কমেন্ট: দেখানো, রিপোর্ট, ব্লক, পড়ে শোনানো ===== */
 $("cn").value=NICK;
