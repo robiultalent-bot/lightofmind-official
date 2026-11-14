@@ -75,6 +75,12 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
  <button id="sb" type="button">🔍 খুঁজুন</button>
  <div class="rs" id="res"></div>
 </div>
+
+<h2>গানের লাইব্রেরি</h2>
+<div class="c">
+ <p id="lbn">লাইব্রেরি লোড হচ্ছে...</p>
+ <div class="rs" id="lib"></div>
+</div>
 </div>
 <script>
 (function(){
@@ -96,6 +102,7 @@ function okPl(s){return /^[A-Za-z0-9_-]{10,60}$/.test(s||"")}
 
 /* ফায়ারবেস (REST) সিঙ্ক: শুধু ঠিকানা দিলেই চালু হয় */
 function fb(){var u=(C.firebaseUrl||"").replace(/\/+$/,"");return /^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/.test(u)?u+"/blbd/now.json":""}
+function fbBase(){var u=fb();return u?u.replace(/\/now\.json$/,""):""}
 function push(o){
  var u=fb();if(!u)return;
  o.ts=Date.now();o.beat=Date.now();
@@ -145,7 +152,8 @@ window.onYouTubeIframeAPIReady=function(){
   onReady:function(){ready=true;player.setVolume(+$("vol").value);if(started&&mode==="radio")radio()},
   onStateChange:function(e){
    if(e.data===1&&cur){
-    try{var v=player.getVideoData();if(v&&v.author){cur.channel=cur.channel||v.author;showSub(cur.channel,cur.channelUrl)}}catch(x){}
+    try{var v=player.getVideoData();if(v&&v.author){cur.channel=cur.channel||v.author;showSub(cur.channel,cur.channelUrl)}
+    if(v&&v.title&&/^ইউটিউব ভিডিও/.test(cur.title)){cur.title=v.title;$("np").textContent="চলছে: "+cur.title+(cur.channel?" - "+cur.channel:"");if(isCreator)addLib(cur)}}catch(x){}
    }
    if(e.data===0&&mode==="break"&&cur)say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");
   },
@@ -212,6 +220,49 @@ $("en").onclick=function(){
  radio();$("go").focus();
 };
 
+
+/* গানের লাইব্রেরি: কনফিগের গান + ক্রিয়েটরদের চালানো গান */
+var LIB=[];
+function addLib(it){
+ var b=fbBase();if(!b||!okId(it.id))return;
+ try{fetch(b+"/lib/"+it.id+".json",{method:"PUT",body:JSON.stringify({title:String(it.title||"").slice(0,120),channel:String(it.channel||"").slice(0,80),channelUrl:/^https:\/\/(www\.)?youtube\.com\//.test(it.channelUrl||"")?it.channelUrl:"",ts:Date.now()})})}catch(e){}
+}
+function loadLib(){
+ var base=(C.songs||[]).filter(function(x){return okId(x.id)});
+ var b=fbBase();
+ if(!b){LIB=base;drawLib();return}
+ fetch(b+"/lib.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+  var more=[];
+  if(d&&typeof d==="object")Object.keys(d).forEach(function(k){var x=d[k];if(okId(k)&&x&&x.title)more.push({id:k,title:String(x.title).slice(0,120),channel:String(x.channel||"").slice(0,80),channelUrl:x.channelUrl||"",ts:+x.ts||0})});
+  more.sort(function(a,b){return b.ts-a.ts});
+  var seen={};LIB=base.concat(more).filter(function(x){if(seen[x.id])return false;seen[x.id]=1;return true}).slice(0,60);
+  drawLib();
+ }).catch(function(){LIB=base;drawLib()});
+}
+function drawLib(){
+ var box=$("lib");box.textContent="";
+ $("lbn").textContent=LIB.length?LIB.length+"টি গান আছে। একটি বেছে শুনুন।":"লাইব্রেরিতে এখনো গান নেই। ক্রিয়েটররা লাইভে গান চালালে এখানে জমা হবে।";
+ LIB.forEach(function(it){
+  var b=el("button");b.type="button";
+  b.appendChild(el("b",it.title));b.appendChild(el("div",it.channel||"ইউটিউব"));
+  b.onclick=function(){libPlay(it)};box.appendChild(b);
+ });
+}
+function libPlay(it){
+ if(isCreator){
+  if(mode==="break")play(it);
+  else say("লাইভে গান চালাতে আগে ব্রেক বোতাম চাপুন।");
+  return;
+ }
+ started=true;mode="radio";
+ cur={id:it.id,title:it.title,channel:it.channel||"",channelUrl:it.channelUrl||"",ts:Date.now()};
+ if(!ready){say("প্লেয়ার তৈরি হচ্ছে, একটু পরে চেষ্টা করুন।");return}
+ try{player.loadVideoById(it.id);player.setVolume(+$("vol").value)}catch(e){}
+ $("np").textContent="লাইব্রেরি থেকে চলছে: "+it.title+(it.channel?" - "+it.channel:"");
+ showSub(cur.channel,cur.channelUrl);$("pp").textContent="⏸ থামান";
+ say("গান চলছে: "+it.title+"। এটা শুধু আপনার ফোনে চলছে।");
+}
+
 /* গান খোঁজা */
 function parseYT(q){
  var m=String(q).match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
@@ -249,6 +300,7 @@ function play(it){
  $("np").textContent="চলছে: "+it.title+(it.channel?" - "+it.channel:"");
  showSub(cur.channel,cur.channelUrl);
  say("গান চলছে: "+it.title);
+ addLib(it);setTimeout(loadLib,1500);
  push({mode:"song",video:cur.id,title:cur.title,channel:cur.channel,channelUrl:cur.channelUrl,ts:cur.ts});
 }
 /* ভয়েস সার্চ */
@@ -269,7 +321,7 @@ fetch("config.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return
  C=d;$("wl").textContent=d.welcome||"";
  $("sp").hidden=!d.spinner;
  say("তৈরি। রেডিও শুনতে চালান বোতাম চাপুন।");
- setInterval(pull,5000);
+ setInterval(pull,5000);loadLib();setInterval(loadLib,120000);
 }).catch(function(){say("সেটিংস ফাইল লোড করা যায়নি। পাতাটি আবার খুলুন।")});
 })();
 </script>
