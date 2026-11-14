@@ -93,7 +93,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
  <button id="cs" type="button">পাঠান</button>
  <label><input type="checkbox" id="crd"> কমেন্ট পড়ে শোনাও (সঞ্চালকের জন্য)</label>
  <div id="cst" role="status" aria-live="polite"></div>
- <div id="cl" role="log" aria-live="polite" class="rs"></div>
+ <div id="cl" aria-live="off" class="rs"></div>
 </div>
 
 <h2>রেডিও সেটিংস</h2>
@@ -264,10 +264,12 @@ function radio(){
  var r=(C.radio||[]).filter(function(x){return okPl(x.playlist)})[0];
  if(!r||!ready)return;
  showSub(r.name,"");$("pp").textContent="⏸ থামান";
- if(!sTried){$("np").textContent="রেডিও চালু হচ্ছে...";loadSched().then(function(){if(mode==="radio"&&!cur&&radioOn)radio()});return}
  if(S){radioSched();return}
+ /* সার্ভারের সময়সূচি না থাকলে সরাসরি প্লেলিস্ট চালানো হয়, কখনো আটকে থাকে না */
+ radioFallback(r);
+ if(!sTried){loadSched().then(function(){if(S&&mode==="radio"&&!cur&&radioOn)radioSched()})}
+ return;
  if(R.got){radioJoin();return}
- $("np").textContent="রেডিও চালু হচ্ছে...";
  R.pend=true;
  try{player.cuePlaylist({listType:"playlist",list:r.playlist})}catch(e){R.pend=false;radioFallback(r)}
  /* যদি ৪ সেকেন্ডে সাড়া না আসে, সরাসরি প্লেলিস্ট চালাও */
@@ -326,7 +328,7 @@ window.onYouTubeIframeAPIReady=function(){
    if(e.data===0&&mode==="break"&&cur)say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");
    if(e.data===0&&mode==="radio"){if(cur){cur=null;radio()}else if(S&&radioOn)radioSched();else if(R.got)radioNext()}
   },
-  onError:function(){if(mode==="radio"&&!cur&&S&&radioOn){playItem(R.sIdx+1,0);return}if(mode==="radio"&&!cur&&R.got){radioNext();return}say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
+  onError:function(){if(mode==="radio"&&!cur&&S&&radioOn){playItem(R.sIdx+1,0);return}if(mode==="radio"&&!cur&&!S&&!R.got){try{player.nextVideo()}catch(x){}return}if(mode==="radio"&&!cur&&R.got){radioNext();return}say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
  }});
 };
 var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s);
@@ -666,7 +668,7 @@ setInterval(function(){
 
 /* ===== লাইভ কমেন্ট: দেখানো, রিপোর্ট, ব্লক, পড়ে শোনানো ===== */
 $("cn").value=NICK;
-var CM={seenKeys:{},first:true,last:0,blocked:{},reports:{}};
+var CM={seenKeys:{},first:true,last:0,blocked:{},reports:{},sig:""};
 function cbase(){return fbBase()}
 function cmGet(p){var b=cbase();return b?fetch(b+p,{cache:"no-store"}).then(function(r){return r.json()}).catch(function(){return null}):Promise.resolve(null)}
 function cmLoad(){
@@ -674,30 +676,34 @@ function cmLoad(){
  Promise.all([cmGet('/comments.json?orderBy="$key"&limitToLast=30'),cmGet("/blocked.json"),cmGet("/reports.json")]).then(function(r){
   var d=r[0]||{};CM.blocked=r[1]||{};CM.reports=r[2]||{};
   var keys=Object.keys(d).sort();
-  var box=$("cl");box.textContent="";
-  keys.slice().reverse().forEach(function(k){
-   var c=d[k];if(!c||!c.t)return;
-   if(CM.blocked[c.u])return;
-   if(Object.keys(CM.reports[k]||{}).length>=2)return;
-   var row=el("div");row.appendChild(el("b",String(c.n||"শ্রোতা").slice(0,20)+": "));row.appendChild(document.createTextNode(String(c.t).slice(0,200)));
-   row.appendChild(document.createElement("br"));
-   var rp=el("button","🚩 রিপোর্ট");rp.type="button";rp.setAttribute("aria-label","এই কমেন্ট রিপোর্ট করুন");
-   rp.onclick=function(){var b=cbase();fetch(b+"/reports/"+k+"/"+UID+".json",{method:"PUT",body:"1"}).then(function(){$("cst").textContent="রিপোর্ট জমা হয়েছে।";cmLoad()}).catch(function(){})};
-   row.appendChild(rp);
-   if(isCreator){
-    var bl=el("button","🚫 ব্লক");bl.type="button";bl.setAttribute("aria-label","এই ব্যবহারকারীকে ব্লক করুন");
-    bl.onclick=function(){fetch(cbase()+"/blocked/"+c.u+".json",{method:"PUT",body:"true"}).then(function(){$("cst").textContent="ব্লক করা হয়েছে।";cmLoad()}).catch(function(){})};
-    row.appendChild(bl);
-   }
-   box.appendChild(row);
-  });
+  var vis=keys.filter(function(k){var c=d[k];return c&&c.t&&!CM.blocked[c.u]&&Object.keys(CM.reports[k]||{}).length<2});
+  var sig=vis.join(",")+"|"+isCreator;
+  if(sig!==CM.sig){
+   CM.sig=sig;
+   var box=$("cl");box.textContent="";
+   vis.slice().reverse().forEach(function(k){
+    var c=d[k];
+    var row=el("div");row.appendChild(el("b",String(c.n||"শ্রোতা").slice(0,20)+": "));row.appendChild(document.createTextNode(String(c.t).slice(0,200)));
+    row.appendChild(document.createElement("br"));
+    var rp=el("button","রিপোর্ট");rp.type="button";rp.setAttribute("aria-label",String(c.n||"শ্রোতা")+" এর কমেন্ট রিপোর্ট করুন");
+    rp.onclick=function(){fetch(cbase()+"/reports/"+k+"/"+UID+".json",{method:"PUT",body:"1"}).then(function(){$("cst").textContent="রিপোর্ট জমা হয়েছে।";CM.sig="";cmLoad()}).catch(function(){})};
+    row.appendChild(rp);
+    if(isCreator){
+     var bl=el("button","ব্লক");bl.type="button";bl.setAttribute("aria-label",String(c.n||"শ্রোতা")+" কে ব্লক করুন");
+     bl.onclick=function(){fetch(cbase()+"/blocked/"+c.u+".json",{method:"PUT",body:"true"}).then(function(){$("cst").textContent="ব্লক করা হয়েছে।";CM.sig="";cmLoad()}).catch(function(){})};
+     row.appendChild(bl);
+    }
+    box.appendChild(row);
+   });
+  }
   if(CM.first){keys.forEach(function(k){CM.seenKeys[k]=1});CM.first=false;return}
   keys.forEach(function(k){
    if(CM.seenKeys[k])return;CM.seenKeys[k]=1;
    var c=d[k];if(!c||!c.t||CM.blocked[c.u])return;
+   var line=String(c.n||"শ্রোতা")+" বলছেন: "+String(c.t).slice(0,200);
    if(isCreator&&$("crd").checked&&window.speechSynthesis){
-    var u=new SpeechSynthesisUtterance(String(c.n||"শ্রোতা")+" বলছেন: "+String(c.t).slice(0,200));u.lang="bn-BD";speechSynthesis.speak(u);
-   }
+    var u=new SpeechSynthesisUtterance(line);u.lang="bn-BD";speechSynthesis.speak(u);
+   }else if(!isCreator)$("cst").textContent="নতুন কমেন্ট: "+line;
   });
  });
 }
