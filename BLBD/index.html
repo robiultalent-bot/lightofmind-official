@@ -137,27 +137,83 @@ function showSub(name,url){
  a.href=h;a.textContent="📺 "+(name||"চ্যানেল")+" সাবস্ক্রাইব করুন";a.hidden=false;
 }
 
-/* ডিফল্ট রেডিও */
+/* ডিফল্ট রেডিও: সবার জন্য একই সময়ের একই গান (ফায়ারবেসে সিঙ্ক), নতুন কেউ ঢুকলে চলমান গানের মাঝখান থেকে শুনবে */
+var R={ids:[],idx:0,got:false,pend:false,t:0,durSent:""};
+function radioUrl(){var b=fbBase();return b?b+"/radio.json":""}
+function seeded(ids){
+ var a=ids.slice().sort(),s=0,i;
+ for(i=0;i<a.join("").length;i++)s=(s*31+a.join("").charCodeAt(i))>>>0;
+ for(i=a.length-1;i>0;i--){s=(s+0x6D2B79F5)>>>0;var t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;var r=((t^(t>>>14))>>>0)/4294967296;var j=Math.floor(r*(i+1));var x=a[i];a[i]=a[j];a[j]=x}
+ return a;
+}
+function radioFallback(r){
+ try{player.loadPlaylist({listType:"playlist",list:r.playlist,index:0});player.setShuffle(true);player.setLoop(true);player.setVolume(+$("vol").value)}catch(e){}
+ $("np").textContent="রেডিও চলছে: "+r.name;
+}
 function radio(){
  mode="radio";cur=null;
  var r=(C.radio||[]).filter(function(x){return okPl(x.playlist)})[0];
- if(!r||!ready){return}
- try{player.loadPlaylist({listType:"playlist",list:r.playlist,index:0});player.setShuffle(true);player.setLoop(true);player.setVolume(+$("vol").value)}catch(e){}
- $("np").textContent="রেডিও চলছে: "+r.name;
- showSub(r.name,"");
- $("pp").textContent="⏸ থামান";
+ if(!r||!ready)return;
+ showSub(r.name,"");$("pp").textContent="⏸ থামান";
+ if(R.got){radioJoin();return}
+ $("np").textContent="রেডিও চালু হচ্ছে...";
+ R.pend=true;
+ try{player.cuePlaylist({listType:"playlist",list:r.playlist})}catch(e){R.pend=false;radioFallback(r)}
+}
+function radioGot(){
+ R.pend=false;
+ var r=(C.radio||[]).filter(function(x){return okPl(x.playlist)})[0];
+ var ids=[];try{ids=(player.getPlaylist()||[]).filter(okId)}catch(e){}
+ if(!ids.length){radioFallback(r);return}
+ R.ids=seeded(ids);R.got=true;radioJoin();
+}
+function radioJoin(){
+ var u=radioUrl(),n=R.ids.length;
+ if(!u){radioPlay(Math.floor(Math.random()*n),0,false);return}
+ fetch(u,{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+  if(d&&d.n===n&&d.i>=0&&d.i<n&&d.t){
+   var el=(Date.now()-d.t)/1000;
+   if(d.d?el<d.d-8:el<240)radioPlay(d.i,Math.floor(el),false);
+   else radioPlay((d.i+1)%n,0,true);
+  }else radioPlay(Math.floor(Math.random()*n),0,true);
+ }).catch(function(){radioPlay(0,0,false)});
+}
+function radioPlay(i,off,write){
+ R.idx=i;R.t=Date.now()-off*1000;
+ try{player.loadVideoById({videoId:R.ids[i],startSeconds:off});player.setVolume(+$("vol").value)}catch(e){}
+ $("np").textContent="রেডিও চলছে (সবার সাথে একসাথে): গান "+bnum(i+1)+"/"+bnum(R.ids.length);
+ if(write)radioWrite({i:i,n:R.ids.length,t:R.t,d:0});
+}
+function bnum(n){return String(n).replace(/\d/g,function(d){return "০১২৩৪৫৬৭৮৯"[d]})}
+function radioWrite(o){var u=radioUrl();if(!u)return;try{fetch(u,{method:"PUT",body:JSON.stringify(o)})}catch(e){}}
+function radioDur(){
+ var u=radioUrl();if(!u)return;
+ var k=R.idx+":"+R.t;if(R.durSent===k)return;
+ try{var d=Math.round(player.getDuration());if(d>0){R.durSent=k;fetch(u,{method:"PATCH",body:JSON.stringify({d:d})})}}catch(e){}
+}
+/* গান শেষ বা না চললে পরের গানে যাওয়া। অন্য কেউ আগেই এগোলে তার সাথে মিলে যায় */
+function radioNext(){
+ var u=radioUrl(),n=R.ids.length;if(!n)return;
+ if(!u){radioPlay((R.idx+1)%n,0,false);return}
+ fetch(u,{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+  if(d&&d.n===n&&d.i!==R.idx&&d.t&&(Date.now()-d.t)/1000<(d.d||240))radioPlay(d.i,Math.floor((Date.now()-d.t)/1000),false);
+  else radioPlay((R.idx+1)%n,0,true);
+ }).catch(function(){radioPlay((R.idx+1)%n,0,false)});
 }
 window.onYouTubeIframeAPIReady=function(){
  player=new YT.Player("yt",{width:"100%",height:"100%",playerVars:{playsinline:1,rel:0},events:{
   onReady:function(){ready=true;player.setVolume(+$("vol").value);if(started&&mode==="radio")radio()},
   onStateChange:function(e){
+   if(e.data===5&&R.pend){radioGot();return}
    if(e.data===1&&cur){
-    try{var v=player.getVideoData();if(v&&v.author){cur.channel=cur.channel||v.author;showSub(cur.channel,cur.channelUrl)}
-    if(v&&v.title&&/^ইউটিউব ভিডিও/.test(cur.title)){cur.title=v.title;$("np").textContent="চলছে: "+cur.title+(cur.channel?" - "+cur.channel:"");if(isCreator)addLib(cur)}}catch(x){}
+    try{var v=player.getVideoData();if(v&&v.author){cur.channel=cur.channel||v.author;showSub(cur.channel,cur.channelUrl)}}catch(x){}
+    try{var v2=player.getVideoData();if(v2&&v2.title&&/^ইউটিউব ভিডিও/.test(cur.title)){cur.title=v2.title;$("np").textContent="চলছে: "+cur.title+(cur.channel?" - "+cur.channel:"");if(isCreator)addLib(cur)}}catch(x){}
    }
+   if(e.data===1&&mode==="radio"&&!cur&&R.got)radioDur();
    if(e.data===0&&mode==="break"&&cur)say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");
+   if(e.data===0&&mode==="radio"){if(cur){cur=null;radio()}else if(R.got)radioNext()}
   },
-  onError:function(){say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
+  onError:function(){if(mode==="radio"&&!cur&&R.got){radioNext();return}say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
  }});
 };
 var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s);
