@@ -31,6 +31,9 @@ label{display:block;margin-top:8px}
 a{color:#ffd37a}
 button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .lv{color:#ff9b9b;font-weight:700}
+#cl div{background:#0c1328;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:16px}
+#cl b{color:var(--gold)}
+#cl button{font-size:14px;padding:4px 10px;margin:4px 6px 0 0}
 </style>
 </head>
 <body>
@@ -64,6 +67,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
  <button id="br" type="button" hidden>☕ Break (বিরতি)</button>
  <button id="rs" type="button" hidden>🎙️ গান থামিয়ে লাইভে ফিরুন (Resume Live)</button>
  <button id="en" type="button" class="sec" hidden>⏹️ লাইভ শেষ করুন (End Live)</button>
+ <button id="gj" type="button" class="sec" hidden>🎤 গেস্ট হিসেবে কথা বলতে চাই</button>
+ <div id="gq"></div>
+ <audio id="la" playsinline></audio>
  <p><small>লাইভে না ঢুকলে গান বাছাই করা যাবে না। লাইভ চলাকালীন ক্রিয়েটরের নিজের কণ্ঠ শ্রোতাদের কাছে পৌঁছানো পরের ধাপে আসবে।</small></p>
 </div>
 
@@ -74,6 +80,18 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
  <button id="vs" type="button">🎤 বলে খুঁজুন</button>
  <button id="sb" type="button">🔍 খুঁজুন</button>
  <div class="rs" id="res"></div>
+</div>
+
+<h2>লাইভ কমেন্ট</h2>
+<div class="c">
+ <label for="cn">আপনার নাম</label>
+ <input id="cn" type="text" maxlength="20" autocomplete="off">
+ <label for="ct">কমেন্ট লিখুন</label>
+ <input id="ct" type="text" maxlength="200" autocomplete="off">
+ <button id="cs" type="button">পাঠান</button>
+ <label><input type="checkbox" id="crd"> কমেন্ট পড়ে শোনাও (সঞ্চালকের জন্য)</label>
+ <div id="cst" role="status" aria-live="polite"></div>
+ <div id="cl" role="log" aria-live="polite" class="rs"></div>
 </div>
 
 <h2>রেডিও সেটিংস</h2>
@@ -111,12 +129,13 @@ function fb(){var u=(C.firebaseUrl||"").replace(/\/+$/,"");return /^https:\/\/[a
 function fbBase(){var u=fb();return u?u.replace(/\/now\.json$/,""):""}
 function push(o){
  var u=fb();if(!u)return;
- o.ts=Date.now();o.beat=Date.now();
+ o.ts=Date.now();o.beat=Date.now();if(isCreator&&o.mode!=="off")o.live=1;
  try{fetch(u,{method:"PUT",body:JSON.stringify(o)})}catch(e){}
 }
 function pull(){
  var u=fb();if(!u||isCreator)return;
  fetch(u,{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+  liveWatch(d);
   if(!d||d.mode==="off"||Date.now()-(d.beat||0)>60000){
    if(follow){follow="";if(started){say("লাইভ শেষ। রেডিও চলছে।");radio()}}
    return;
@@ -347,25 +366,25 @@ function goLive(){
  $("go").hidden=true;$("br").hidden=false;$("en").hidden=false;$("rs").hidden=true;
  $("np").textContent="আপনি লাইভে আছেন।";$("sub").hidden=true;
  say("লাইভ শুরু হয়েছে। রেডিওর গান থামানো হয়েছে।");
- push({mode:"live"});
+ push({mode:"live"});startVoice();
  clearInterval(beat);beat=setInterval(function(){push(cur?{mode:"song",video:cur.id,title:cur.title,channel:cur.channel||"",channelUrl:cur.channelUrl||"",ts:cur.ts}:{mode:"live"})},20000);
  $("br").focus();
 }
 /* ব্রেক: গান খোঁজার অংশ খোলে */
 $("br").onclick=function(){
  mode="break";$("sbox").hidden=false;$("br").hidden=true;$("rs").hidden=false;
- say("ব্রেক শুরু। গান খুঁজুন।");$("q").focus();
+ micSet(false);say("ব্রেক শুরু। মাইক বন্ধ। গান খুঁজুন।");$("q").focus();
 };
 /* গান থামিয়ে লাইভে ফেরা */
 $("rs").onclick=function(){
  try{player.stopVideo()}catch(e){}
  mode="live";cur=null;$("sbox").hidden=true;$("rs").hidden=true;$("br").hidden=false;$("sub").hidden=true;
- $("np").textContent="আপনি লাইভে আছেন।";say("গান বন্ধ। আপনি আবার লাইভে ফিরেছেন।");
+ $("np").textContent="আপনি লাইভে আছেন।";micSet(true);say("গান বন্ধ। আপনি আবার লাইভে ফিরেছেন, মাইক চালু।");
  push({mode:"live"});$("br").focus();
 };
 /* লাইভ শেষ: ডিফল্ট রেডিও আবার চালু */
 $("en").onclick=function(){
- clearInterval(beat);isCreator=false;follow="";
+ clearInterval(beat);stopVoice();isCreator=false;follow="";
  try{player.stopVideo()}catch(e){}
  push({mode:"off"});
  $("go").hidden=false;$("br").hidden=true;$("rs").hidden=true;$("en").hidden=true;$("sbox").hidden=true;
@@ -469,6 +488,199 @@ $("vs").onclick=function(){
   r.start();
  }catch(e){say("এই ব্রাউজারে ভয়েস সার্চ চলছে না। লিখে খুঁজুন।")}
 };
+
+
+/* ===== লাইভ কণ্ঠ (ফ্রি WebRTC, ফায়ারবেস দিয়ে সংযোগ ঠিক করা) ===== */
+var LV={pc:null,lid:"",poll:null,tries:0,peers:{},seen:{},gq:{},mic:null,ctx:null,dest:null,micGain:null,gGain:null,amb:null,rt:null,on:false,got:false};
+var ICE=[{urls:"stun:stun.l.google.com:19302"}];
+function lvUrl(p){var b=fbBase();return b?b+"/live"+(p?"/"+p:"")+".json":""}
+function jput(p,o){var u=lvUrl(p);return u?fetch(u,{method:"PUT",body:JSON.stringify(o)}).catch(function(){}):Promise.resolve()}
+function jget(p){var u=lvUrl(p);return u?fetch(u,{cache:"no-store"}).then(function(r){return r.json()}).catch(function(){return null}):Promise.resolve(null)}
+function jdel(p){var u=lvUrl(p);if(u)fetch(u,{method:"DELETE"}).catch(function(){})}
+function gather(pc){return new Promise(function(res){
+ if(pc.iceGatheringState==="complete")return res();
+ var t=setTimeout(res,3500);
+ pc.onicegatheringstatechange=function(){if(pc.iceGatheringState==="complete"){clearTimeout(t);res()}};
+})}
+var NICK="";try{NICK=localStorage.getItem("blbd_n")||""}catch(e){}
+var UID="";try{UID=localStorage.getItem("blbd_u")||""}catch(e){}
+if(!UID){UID="u"+Math.random().toString(36).slice(2,10);try{localStorage.setItem("blbd_u",UID)}catch(e){}}
+
+/* সঞ্চালকের দিক */
+function startVoice(){
+ if(!fbBase()||!window.RTCPeerConnection||!navigator.mediaDevices||!window.AudioContext){say("এই ব্রাউজারে লাইভ কণ্ঠ চলবে না। শুধু গান চলবে।");return}
+ jdel("");
+ navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(st){
+  var c=new AudioContext();LV.ctx=c;LV.mic=st;
+  LV.dest=c.createMediaStreamDestination();
+  LV.micGain=c.createGain();c.createMediaStreamSource(st).connect(LV.micGain);LV.micGain.connect(LV.dest);
+  LV.gGain=c.createGain();LV.gGain.connect(LV.dest);
+  /* শান্ত স্টুডিও পরিবেশের শব্দ কণ্ঠের সাথে মিশে সবার কাছে যায় */
+  var n=c.sampleRate*2,buf=c.createBuffer(1,n,c.sampleRate),a=buf.getChannelData(0),last=0,i;
+  for(i=0;i<n;i++){var w=Math.random()*2-1;last=(last+0.02*w)/1.02;a[i]=last*3.5}
+  var src=c.createBufferSource();src.buffer=buf;src.loop=true;
+  var f=c.createBiquadFilter();f.type="lowpass";f.frequency.value=380;
+  var g=c.createGain();g.gain.value=0.035;
+  src.connect(f);f.connect(g);g.connect(LV.dest);src.start();LV.amb=src;
+  LV.on=true;
+  say("মাইক চালু। শ্রোতারা আপনার কণ্ঠ শুনবে। ইয়ারফোন লাগিয়ে রাখুন।");
+  LV.rt=setInterval(creatorPoll,2000);
+ }).catch(function(){say("মাইকের অনুমতি পাওয়া যায়নি। শুধু গান চলবে।")});
+}
+function micSet(on){
+ if(!LV.micGain)return;
+ LV.micGain.gain.value=on?1:0;
+ say(on?"মাইক আবার চালু।":"মাইক বন্ধ। ব্রেক চলছে।");
+}
+function creatorPoll(){
+ if(!LV.on)return;
+ jget("req").then(function(rq){
+  if(!rq||!LV.on)return;
+  Object.keys(rq).forEach(function(id){
+   var r=rq[id];if(!r||LV.seen[id]||LV.peers[id])return;
+   if(r.g){
+    if(LV.gq[id])return;
+    LV.gq[id]=1;
+    var b=el("button","🎤 অনুমোদন দিন: "+String(r.n||"গেস্ট").slice(0,20)+" কথা বলতে চান");b.type="button";
+    b.onclick=function(){b.remove();connect(id,true)};
+    $("gq").appendChild(b);say("একজন গেস্ট কথা বলতে চান। অনুমোদন বোতাম আছে।");
+   }else if(Object.keys(LV.peers).length<8)connect(id,false);
+  });
+ });
+}
+function connect(id,guest){
+ var pc=new RTCPeerConnection({iceServers:ICE});LV.peers[id]=pc;LV.seen[id]=1;
+ if(guest){
+  LV.mic.getAudioTracks().forEach(function(t){pc.addTrack(t,LV.mic)});
+  pc.ontrack=function(e){
+   var s=e.streams[0];if(!s)return;
+   try{LV.ctx.createMediaStreamSource(s).connect(LV.gGain)}catch(x){}
+   var a=new Audio();a.srcObject=s;a.play().catch(function(){});
+   say("গেস্ট যুক্ত হয়েছেন।");
+  };
+ }else LV.dest.stream.getAudioTracks().forEach(function(t){pc.addTrack(t,LV.dest.stream)});
+ pc.onconnectionstatechange=function(){if(pc.connectionState==="failed"||pc.connectionState==="closed"){try{pc.close()}catch(e){}delete LV.peers[id]}};
+ pc.createOffer({offerToReceiveAudio:!!guest}).then(function(o){return pc.setLocalDescription(o)}).then(function(){return gather(pc)}).then(function(){
+  return jput("off/"+id,{sdp:pc.localDescription.sdp,type:"offer"});
+ }).then(function(){
+  var n=0,t=setInterval(function(){
+   if(++n>25||!LV.peers[id]){clearInterval(t);return}
+   jget("ans/"+id).then(function(a){
+    if(a&&a.sdp&&pc.signalingState==="have-local-offer"){clearInterval(t);pc.setRemoteDescription(a).catch(function(){})}
+   });
+  },1500);
+ }).catch(function(){});
+}
+function stopVoice(){
+ clearInterval(LV.rt);LV.on=false;
+ Object.keys(LV.peers).forEach(function(k){try{LV.peers[k].close()}catch(e){}});
+ LV.peers={};LV.seen={};LV.gq={};$("gq").textContent="";
+ try{if(LV.mic)LV.mic.getTracks().forEach(function(t){t.stop()})}catch(e){}
+ try{if(LV.ctx)LV.ctx.close()}catch(e){}
+ LV.mic=null;LV.ctx=null;LV.micGain=null;
+ jdel("");
+}
+
+/* শ্রোতা ও গেস্টের দিক */
+function joinLive(stream){
+ if(LV.pc||!fbBase()||!window.RTCPeerConnection)return;
+ if(LV.tries>=3)return;
+ LV.tries++;
+ var guest=!!stream,lid="l"+Math.random().toString(36).slice(2,9);
+ var pc=new RTCPeerConnection({iceServers:ICE});LV.pc=pc;LV.lid=lid;LV.got=false;
+ pc.ontrack=function(e){
+  var s=e.streams[0];if(!s)return;
+  var a=$("la");a.srcObject=s;a.play().catch(function(){});
+  LV.tries=0;say(guest?"আপনি এখন লাইভে কথা বলছেন।":"লাইভ কণ্ঠ যুক্ত হয়েছে। সঞ্চালককে শুনতে পাবেন।");
+ };
+ pc.onconnectionstatechange=function(){if(pc.connectionState==="failed"){leaveLive()}};
+ jput("req/"+lid,{g:guest?1:0,n:NICK||"শ্রোতা",ts:Date.now()});
+ var n=0;
+ LV.poll=setInterval(function(){
+  if(++n>20){leaveLive();say("লাইভ কণ্ঠ যুক্ত হতে পারেনি। গান শুনতে থাকুন।");return}
+  jget("off/"+lid).then(function(o){
+   if(!o||!o.sdp||LV.got||LV.lid!==lid)return;
+   LV.got=true;clearInterval(LV.poll);
+   pc.setRemoteDescription(o).then(function(){
+    if(guest)stream.getAudioTracks().forEach(function(t){pc.addTrack(t,stream)});
+    return pc.createAnswer();
+   }).then(function(a){return pc.setLocalDescription(a)}).then(function(){return gather(pc)}).then(function(){
+    return jput("ans/"+lid,{sdp:pc.localDescription.sdp,type:"answer"});
+   }).catch(function(){leaveLive()});
+  });
+ },1500);
+}
+function leaveLive(){
+ clearInterval(LV.poll);
+ try{if(LV.pc)LV.pc.close()}catch(e){}
+ if(LV.lid)jdel("req/"+LV.lid);
+ LV.pc=null;LV.lid="";
+ try{$("la").srcObject=null}catch(e){}
+}
+function liveWatch(d){
+ if(isCreator)return;
+ var on=d&&d.live&&d.mode!=="off"&&Date.now()-(d.beat||0)<60000;
+ if(on){
+  $("gj").hidden=!(window.RTCPeerConnection);
+  if(started&&!LV.pc)joinLive(null);
+ }else{leaveLive();LV.tries=0;$("gj").hidden=true}
+}
+$("gj").onclick=function(){
+ if(!navigator.mediaDevices){say("এই ব্রাউজারে মাইক চলবে না।");return}
+ navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(st){
+  leaveLive();LV.tries=0;joinLive(st);
+  say("অনুরোধ পাঠানো হয়েছে। সঞ্চালক অনুমোদন দিলে কথা বলতে পারবেন। ইয়ারফোন লাগান।");
+ }).catch(function(){say("মাইকের অনুমতি পাওয়া যায়নি।")});
+};
+
+/* ===== লাইভ কমেন্ট: দেখানো, রিপোর্ট, ব্লক, পড়ে শোনানো ===== */
+$("cn").value=NICK;
+var CM={seenKeys:{},first:true,last:0,blocked:{},reports:{}};
+function cbase(){return fbBase()}
+function cmGet(p){var b=cbase();return b?fetch(b+p,{cache:"no-store"}).then(function(r){return r.json()}).catch(function(){return null}):Promise.resolve(null)}
+function cmLoad(){
+ if(!cbase())return;
+ Promise.all([cmGet('/comments.json?orderBy="$key"&limitToLast=30'),cmGet("/blocked.json"),cmGet("/reports.json")]).then(function(r){
+  var d=r[0]||{};CM.blocked=r[1]||{};CM.reports=r[2]||{};
+  var keys=Object.keys(d).sort();
+  var box=$("cl");box.textContent="";
+  keys.slice().reverse().forEach(function(k){
+   var c=d[k];if(!c||!c.t)return;
+   if(CM.blocked[c.u])return;
+   if(Object.keys(CM.reports[k]||{}).length>=2)return;
+   var row=el("div");row.appendChild(el("b",String(c.n||"শ্রোতা").slice(0,20)+": "));row.appendChild(document.createTextNode(String(c.t).slice(0,200)));
+   row.appendChild(document.createElement("br"));
+   var rp=el("button","🚩 রিপোর্ট");rp.type="button";rp.setAttribute("aria-label","এই কমেন্ট রিপোর্ট করুন");
+   rp.onclick=function(){var b=cbase();fetch(b+"/reports/"+k+"/"+UID+".json",{method:"PUT",body:"1"}).then(function(){$("cst").textContent="রিপোর্ট জমা হয়েছে।";cmLoad()}).catch(function(){})};
+   row.appendChild(rp);
+   if(isCreator){
+    var bl=el("button","🚫 ব্লক");bl.type="button";bl.setAttribute("aria-label","এই ব্যবহারকারীকে ব্লক করুন");
+    bl.onclick=function(){fetch(cbase()+"/blocked/"+c.u+".json",{method:"PUT",body:"true"}).then(function(){$("cst").textContent="ব্লক করা হয়েছে।";cmLoad()}).catch(function(){})};
+    row.appendChild(bl);
+   }
+   box.appendChild(row);
+  });
+  if(CM.first){keys.forEach(function(k){CM.seenKeys[k]=1});CM.first=false;return}
+  keys.forEach(function(k){
+   if(CM.seenKeys[k])return;CM.seenKeys[k]=1;
+   var c=d[k];if(!c||!c.t||CM.blocked[c.u])return;
+   if(isCreator&&$("crd").checked&&window.speechSynthesis){
+    var u=new SpeechSynthesisUtterance(String(c.n||"শ্রোতা")+" বলছেন: "+String(c.t).slice(0,200));u.lang="bn-BD";speechSynthesis.speak(u);
+   }
+  });
+ });
+}
+$("cs").onclick=function(){
+ var t=$("ct").value.trim(),n=$("cn").value.trim().slice(0,20)||"শ্রোতা";
+ if(!t)return;
+ if(!cbase()){$("cst").textContent="কমেন্ট এখন চালু নেই।";return}
+ if(Date.now()-CM.last<3000){$("cst").textContent="একটু অপেক্ষা করে আবার পাঠান।";return}
+ if(CM.blocked[UID]){$("cst").textContent="আপনি কমেন্ট করতে পারবেন না।";return}
+ CM.last=Date.now();NICK=n;try{localStorage.setItem("blbd_n",n)}catch(e){}
+ fetch(cbase()+"/comments.json",{method:"POST",body:JSON.stringify({u:UID,n:n,t:t.slice(0,200),ts:Date.now()})}).then(function(){$("ct").value="";$("cst").textContent="কমেন্ট পাঠানো হয়েছে।";cmLoad()}).catch(function(){$("cst").textContent="পাঠানো যায়নি।"});
+};
+$("ct").addEventListener("keydown",function(e){if(e.key==="Enter")$("cs").click()});
+setInterval(cmLoad,4000);
 
 /* শুরু */
 fetch("config.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
