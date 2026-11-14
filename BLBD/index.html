@@ -223,7 +223,7 @@ $("pp").onclick=function(){
  if(!ready){say("প্লেয়ার তৈরি হচ্ছে, একটু পরে আবার চাপুন।");return}
  try{
   var st=player.getPlayerState();
-  if(mode==="radio"&&st!==1&&st!==3){if(st===2)player.playVideo();else radio();$("pp").textContent="⏸ থামান"}
+  if(mode==="radio"&&st!==1&&st!==3){if(st===2&&(cur||!R.got))player.playVideo();else radio();$("pp").textContent="⏸ থামান"}
   else if(st===1){player.pauseVideo();$("pp").textContent="▶ চালান"}
   else{player.playVideo();$("pp").textContent="⏸ থামান"}
  }catch(e){}
