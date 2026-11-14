@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BLBD বাংলাদেশ লাইভ ব্রডকাস্ট - মনের আলো</title>
+<meta name="description" content="BLBD: মনের আলোর অনলাইন রেডিও ও লাইভ ব্রডকাস্ট।">
+<style>
+:root{--bg:#080d1c;--card:#131c36;--gold:#f2b84b;--tx:#f3f0e6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Sans Bengali",system-ui,sans-serif;font-size:18px;line-height:1.7}
+.w{max-width:760px;margin:0 auto;padding:16px}
+h1{color:var(--gold);font-size:30px;margin:8px 0}
+h2{color:var(--gold);font-size:22px;margin:22px 0 6px}
+.c{background:var(--card);border-radius:16px;padding:14px;margin:12px 0}
+.top{text-align:center}
+.sp{width:64px;height:64px;margin:10px auto;border:8px solid #2a3a6b;border-top-color:var(--gold);border-radius:50%;animation:r .6s linear infinite}
+@keyframes r{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.sp{animation-duration:3s}}
+button,.bk{font:inherit;font-weight:700;background:var(--gold);color:#241a04;border:0;border-radius:10px;padding:12px 16px;margin:6px 6px 0 0;cursor:pointer;text-decoration:none;display:inline-block}
+button.red{background:#ff6b6b}
+button.sec{background:#2a3a6b;color:var(--tx)}
+button[hidden],div[hidden],a[hidden]{display:none}
+input[type=text],input[type=password],input[type=range]{width:100%;font:inherit;padding:10px;border-radius:10px;border:2px solid #2a3a6b;background:#080d1c;color:var(--tx);margin-top:6px}
+input[type=range]{padding:0;height:36px}
+label{display:block;margin-top:8px}
+.vw{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden}
+.vw div,.vw iframe{position:absolute;inset:0;width:100%;height:100%}
+.rs button{display:block;width:100%;text-align:left;background:#0c1328;color:var(--tx);border:3px solid #2a3a6b;font-weight:400}
+.rs b{color:var(--gold)}
+a{color:#ffd37a}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.lv{color:#ff9b9b;font-weight:700}
+</style>
+</head>
+<body>
+<div class="w">
+<a class="bk" href="../index.html">← মূল সাইটে ফিরুন</a>
+<div class="top">
+ <div class="sp" id="sp" hidden></div>
+ <h1>BLBD বাংলাদেশ লাইভ ব্রডকাস্ট</h1>
+</div>
+<p id="wl"></p>
+
+<div class="c" role="status" aria-live="polite" id="stat">লোড হচ্ছে...</div>
+
+<div class="c">
+ <div class="vw"><div id="yt"></div></div>
+ <p id="np" aria-live="polite">এখনো কিছু চলছে না।</p>
+ <a id="sub" class="bk" href="#" target="_blank" rel="noopener noreferrer" hidden>📺 সাবস্ক্রাইব করুন</a>
+ <button id="pp" type="button">▶ রেডিও চালান</button>
+ <label for="vol">ভলিউম</label>
+ <input id="vol" type="range" min="0" max="100" value="80">
+</div>
+
+<h2>লাইভ</h2>
+<div class="c">
+ <div id="pinbox" hidden>
+  <label for="pin">ক্রিয়েটর পিন</label>
+  <input id="pin" type="password" autocomplete="off">
+  <button id="pinok" type="button">নিশ্চিত করুন</button>
+ </div>
+ <button id="go" type="button" class="red">🔴 Go Live / লাইভ শুরু করুন</button>
+ <button id="br" type="button" hidden>☕ Break (বিরতি)</button>
+ <button id="rs" type="button" hidden>🎙️ গান থামিয়ে লাইভে ফিরুন (Resume Live)</button>
+ <button id="en" type="button" class="sec" hidden>⏹️ লাইভ শেষ করুন (End Live)</button>
+ <p><small>লাইভে না ঢুকলে গান বাছাই করা যাবে না। লাইভ চলাকালীন ক্রিয়েটরের নিজের কণ্ঠ শ্রোতাদের কাছে পৌঁছানো পরের ধাপে আসবে।</small></p>
+</div>
+
+<div class="c" id="sbox" hidden>
+ <h2 style="margin-top:0">গান খুঁজুন</h2>
+ <label for="q">গানের নাম লিখুন বা ইউটিউব লিংক দিন</label>
+ <input id="q" type="text" autocomplete="off">
+ <button id="vs" type="button">🎤 বলে খুঁজুন</button>
+ <button id="sb" type="button">🔍 খুঁজুন</button>
+ <div class="rs" id="res"></div>
+</div>
+</div>
+<script>
+(function(){
+"use strict";
+/* ছোট সহায়ক ফাংশন */
+var $=function(i){return document.getElementById(i)};
+function el(t,x){var e=document.createElement(t);if(x!=null)e.textContent=x;return e}
+var C={radio:[],songs:[]};            /* কনফিগ */
+var player=null,ready=false;
+var mode="radio";                      /* radio | live | break */
+var started=false;                     /* ব্যবহারকারী চালান চেপেছে কি */
+var isCreator=false,beat=null;
+var follow="";                         /* শ্রোতা এখন যা অনুসরণ করছে */
+var cur=null;                          /* এখন চলা গান */
+
+function say(t){$("stat").textContent=t}
+function okId(s){return /^[A-Za-z0-9_-]{11}$/.test(s||"")}
+function okPl(s){return /^[A-Za-z0-9_-]{10,60}$/.test(s||"")}
+
+/* ফায়ারবেস (REST) সিঙ্ক: শুধু ঠিকানা দিলেই চালু হয় */
+function fb(){var u=(C.firebaseUrl||"").replace(/\/+$/,"");return /^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/.test(u)?u+"/blbd/now.json":""}
+function push(o){
+ var u=fb();if(!u)return;
+ o.ts=Date.now();o.beat=Date.now();
+ try{fetch(u,{method:"PUT",body:JSON.stringify(o)})}catch(e){}
+}
+function pull(){
+ var u=fb();if(!u||isCreator)return;
+ fetch(u,{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+  if(!d||d.mode==="off"||Date.now()-(d.beat||0)>60000){
+   if(follow){follow="";if(started){say("লাইভ শেষ। রেডিও চলছে।");radio()}}
+   return;
+  }
+  var key=d.mode+":"+(d.video||"")+":"+d.ts;
+  if(key===follow)return;
+  if(!started){say("ক্রিয়েটর "+(d.mode==="live"?"লাইভে":"গান চালাচ্ছেন")+"। শুনতে রেডিও চালান বোতাম চাপুন।");return}
+  follow=key;
+  if(d.mode==="live"){try{player.pauseVideo()}catch(e){};$("np").textContent="ক্রিয়েটর লাইভে আছেন।";say("ক্রিয়েটর লাইভে এসেছেন।")}
+  else if(okId(d.video)){
+   var off=Math.max(0,Math.floor((Date.now()-d.ts)/1000));
+   try{player.loadVideoById({videoId:d.video,startSeconds:off})}catch(e){}
+   $("np").textContent="চলছে: "+(d.title||"গান")+(d.channel?" - "+d.channel:"");
+   showSub(d.channel,d.channelUrl);say("ক্রিয়েটরের বাছা গান চলছে।");
+  }
+ }).catch(function(){});
+}
+
+/* সাবস্ক্রাইব বোতাম */
+function showSub(name,url){
+ var a=$("sub");
+ var h=/^https:\/\/(www\.)?youtube\.com\//.test(url||"")?url+(url.indexOf("?")<0?"?sub_confirmation=1":""):(name?"https://www.youtube.com/results?search_query="+encodeURIComponent(name):"");
+ if(!h){a.hidden=true;return}
+ a.href=h;a.textContent="📺 "+(name||"চ্যানেল")+" সাবস্ক্রাইব করুন";a.hidden=false;
+}
+
+/* ডিফল্ট রেডিও */
+function radio(){
+ mode="radio";cur=null;
+ var r=(C.radio||[]).filter(function(x){return okPl(x.playlist)})[0];
+ if(!r||!ready){return}
+ try{player.loadPlaylist({listType:"playlist",list:r.playlist,index:0});player.setShuffle(true);player.setLoop(true);player.setVolume(+$("vol").value)}catch(e){}
+ $("np").textContent="রেডিও চলছে: "+r.name;
+ showSub(r.name,"");
+ $("pp").textContent="⏸ থামান";
+}
+window.onYouTubeIframeAPIReady=function(){
+ player=new YT.Player("yt",{width:"100%",height:"100%",playerVars:{playsinline:1,rel:0},events:{
+  onReady:function(){ready=true;player.setVolume(+$("vol").value);if(started&&mode==="radio")radio()},
+  onStateChange:function(e){
+   if(e.data===1&&cur){
+    try{var v=player.getVideoData();if(v&&v.author){cur.channel=cur.channel||v.author;showSub(cur.channel,cur.channelUrl)}}catch(x){}
+   }
+   if(e.data===0&&mode==="break"&&cur)say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");
+  },
+  onError:function(){say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
+ }});
+};
+var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s);
+
+$("pp").onclick=function(){
+ started=true;
+ if(!ready){say("প্লেয়ার তৈরি হচ্ছে, একটু পরে আবার চাপুন।");return}
+ try{
+  var st=player.getPlayerState();
+  if(mode==="radio"&&st!==1&&st!==3){if(st===2)player.playVideo();else radio();$("pp").textContent="⏸ থামান"}
+  else if(st===1){player.pauseVideo();$("pp").textContent="▶ চালান"}
+  else{player.playVideo();$("pp").textContent="⏸ থামান"}
+ }catch(e){}
+};
+$("vol").oninput=function(){try{if(ready)player.setVolume(+$("vol").value)}catch(e){}};
+
+/* ক্রিয়েটর পিন (ঐচ্ছিক) */
+function sha(t){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)).then(function(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return ("0"+x.toString(16)).slice(-2)}).join("")})}
+$("go").onclick=function(){
+ if(C.creatorPinSha256){$("pinbox").hidden=false;$("pin").focus();say("ক্রিয়েটর পিন দিন।");return}
+ goLive();
+};
+$("pinok").onclick=function(){
+ sha($("pin").value).then(function(h){
+  if(h===C.creatorPinSha256){$("pinbox").hidden=true;$("pin").value="";goLive()}
+  else{say("পিন ভুল হয়েছে।");$("pin").value=""}
+ }).catch(function(){say("এই ব্রাউজারে পিন যাচাই করা যাচ্ছে না।")});
+};
+
+/* লাইভ শুরু: ডিফল্ট গান আপনাআপনি থেমে যাবে */
+function goLive(){
+ started=true;isCreator=true;mode="live";cur=null;
+ try{if(ready)player.pauseVideo()}catch(e){}
+ $("go").hidden=true;$("br").hidden=false;$("en").hidden=false;$("rs").hidden=true;
+ $("np").textContent="আপনি লাইভে আছেন।";$("sub").hidden=true;
+ say("লাইভ শুরু হয়েছে। রেডিওর গান থামানো হয়েছে।");
+ push({mode:"live"});
+ clearInterval(beat);beat=setInterval(function(){push(cur?{mode:"song",video:cur.id,title:cur.title,channel:cur.channel||"",channelUrl:cur.channelUrl||"",ts:cur.ts}:{mode:"live"})},20000);
+ $("br").focus();
+}
+/* ব্রেক: গান খোঁজার অংশ খোলে */
+$("br").onclick=function(){
+ mode="break";$("sbox").hidden=false;$("br").hidden=true;$("rs").hidden=false;
+ say("ব্রেক শুরু। গান খুঁজুন।");$("q").focus();
+};
+/* গান থামিয়ে লাইভে ফেরা */
+$("rs").onclick=function(){
+ try{player.stopVideo()}catch(e){}
+ mode="live";cur=null;$("sbox").hidden=true;$("rs").hidden=true;$("br").hidden=false;$("sub").hidden=true;
+ $("np").textContent="আপনি লাইভে আছেন।";say("গান বন্ধ। আপনি আবার লাইভে ফিরেছেন।");
+ push({mode:"live"});$("br").focus();
+};
+/* লাইভ শেষ: ডিফল্ট রেডিও আবার চালু */
+$("en").onclick=function(){
+ clearInterval(beat);isCreator=false;follow="";
+ try{player.stopVideo()}catch(e){}
+ push({mode:"off"});
+ $("go").hidden=false;$("br").hidden=true;$("rs").hidden=true;$("en").hidden=true;$("sbox").hidden=true;
+ say("লাইভ শেষ হয়েছে। রেডিও আবার চালু হচ্ছে।");
+ radio();$("go").focus();
+};
+
+/* গান খোঁজা */
+function parseYT(q){
+ var m=String(q).match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([A-Za-z0-9_-]{11})/);
+ if(m)return m[1];
+ return okId(String(q).trim())?String(q).trim():"";
+}
+function render(items){
+ var box=$("res");box.textContent="";
+ if(!items.length){box.appendChild(el("p","কিছু পাওয়া যায়নি। অন্য নামে চেষ্টা করুন।"));say("কোনো ফল নেই।");return}
+ say(items.length+"টি ফল পাওয়া গেছে।");
+ items.forEach(function(it){
+  var b=el("button");b.type="button";
+  b.appendChild(el("b",it.title));b.appendChild(el("div",it.channel||"ইউটিউব"));
+  b.onclick=function(){play(it)};box.appendChild(b);
+ });
+}
+function search(){
+ var q=$("q").value.trim();if(!q)return;
+ var id=parseYT(q);
+ if(id){render([{id:id,title:"ইউটিউব ভিডিও ("+id+")",channel:""}]);return}
+ var low=q.toLowerCase();
+ var items=(C.songs||[]).filter(function(x){return okId(x.id)&&((x.title||"").toLowerCase().indexOf(low)>=0||(x.channel||"").toLowerCase().indexOf(low)>=0)});
+ if(/^https:\/\//.test(C.searchApi||"")){
+  say("খোঁজা হচ্ছে...");
+  fetch(C.searchApi+(C.searchApi.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(d){
+   var more=(d.items||[]).filter(function(x){return okId(x.id)});render(items.concat(more));
+  }).catch(function(){render(items)});
+ }else render(items);
+}
+$("sb").onclick=search;
+$("q").addEventListener("keydown",function(e){if(e.key==="Enter")search()});
+function play(it){
+ cur={id:it.id,title:it.title,channel:it.channel||"",channelUrl:it.channelUrl||"",ts:Date.now()};
+ try{player.loadVideoById(it.id);player.setVolume(+$("vol").value)}catch(e){}
+ $("np").textContent="চলছে: "+it.title+(it.channel?" - "+it.channel:"");
+ showSub(cur.channel,cur.channelUrl);
+ say("গান চলছে: "+it.title);
+ push({mode:"song",video:cur.id,title:cur.title,channel:cur.channel,channelUrl:cur.channelUrl,ts:cur.ts});
+}
+/* ভয়েস সার্চ */
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+if(!SR)$("vs").hidden=true;
+$("vs").onclick=function(){
+ try{
+  var r=new SR();r.lang="bn-BD";
+  r.onstart=function(){say("শুনছি। গানের নাম বলুন।")};
+  r.onresult=function(e){$("q").value=e.results[0][0].transcript;say("শুনেছি: "+$("q").value);search()};
+  r.onerror=function(){say("মাইক চালু করা যায়নি। অনুমতি দিন বা লিখে খুঁজুন।")};
+  r.start();
+ }catch(e){say("এই ব্রাউজারে ভয়েস সার্চ চলছে না। লিখে খুঁজুন।")}
+};
+
+/* শুরু */
+fetch("config.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
+ C=d;$("wl").textContent=d.welcome||"";
+ $("sp").hidden=!d.spinner;
+ say("তৈরি। রেডিও শুনতে চালান বোতাম চাপুন।");
+ setInterval(pull,5000);
+}).catch(function(){say("সেটিংস ফাইল লোড করা যায়নি। পাতাটি আবার খুলুন।")});
+})();
+</script>
+</body>
+</html>
