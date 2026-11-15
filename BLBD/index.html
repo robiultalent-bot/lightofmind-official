@@ -200,16 +200,30 @@ function playItem(i,off){
   playJingle(it.j,off,i);
  }else playItem(i+1,0);
 }
+var JT={
+ j1:"আপনি শুনছেন বিএলবিডি, বাংলাদেশ লাইভ ব্রডকাস্ট। মনের আলোর অনলাইন রেডিও।",
+ j2:"বিএলবিডি রেডিও। দৃষ্টিপ্রতিবন্ধী ভাই ও বোনদের জন্য ব্লাইন্ড ট্যালেন্টের উপহার।",
+ j3:"আমাদের সাথে থাকুন। আপনার একটি সাবস্ক্রাইব আমাদের এগিয়ে চলার সবচেয়ে বড় শক্তি।",
+ j4:"মনের আলো অ্যাপ নামিয়ে নিন, আর ব্লাইন্ড ট্যালেন্ট চ্যানেলের সাথে যুক্ত থাকুন।"
+};
+/* স্টেশন ঘোষণা: জেমিনির রেকর্ড থাকলে সেটা, না থাকলে ব্রাউজারের বাংলা কণ্ঠ */
+function speakJ(k,off){
+ if(off>5||!window.speechSynthesis)return;
+ var u=new SpeechSynthesisUtterance(JT[k]||"আপনি শুনছেন বিএলবিডি।");u.lang="bn-BD";
+ speechSynthesis.cancel();speechSynthesis.speak(u);
+}
 function playJingle(k,off,i){
  var u=fbBase();
+ if(!u){speakJ(k,off);return}
  var get=jCache[k]?Promise.resolve(jCache[k]):fetch(u+"/jingles/"+encodeURIComponent(k)+".json").then(function(r){return r.json()}).then(function(d){if(d&&d.a)jCache[k]=d;return d});
  get.then(function(d){
-  if(!d||!d.a||!radioOn||mode!=="radio"||cur){if(radioOn&&mode==="radio"&&!cur)playItem(i+1,0);return}
+  if(!radioOn||mode!=="radio"||cur)return;
+  if(!d||!d.a){speakJ(k,off);return}
   stopJ();
   var a=new Audio("data:audio/wav;base64,"+d.a);jAudio=a;
   a.onloadedmetadata=function(){try{a.currentTime=Math.min(off,Math.max(0,a.duration-0.5))}catch(e){}};
   var p=a.play();if(p&&p.catch)p.catch(function(){});
- }).catch(function(){if(radioOn&&mode==="radio"&&!cur)playItem(i+1,0)});
+ }).catch(function(){if(radioOn&&mode==="radio"&&!cur)speakJ(k,off)});
 }
 /* প্রতি ঘণ্টায় সময় ঘোষণা (ব্রাউজারের বাংলা কণ্ঠ), ঘোষণার সময় গানের শব্দ কমে */
 function dh(){
