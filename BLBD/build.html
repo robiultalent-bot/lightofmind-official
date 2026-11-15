@@ -77,11 +77,11 @@ $("go").onclick=async function(){
  var b=fbBase();if(!b){say("ফায়ারবেসের ঠিকানা নেই। config.json দেখুন।");return}
  var pls=(C.radio||[]).map(function(x){return x.playlist}).filter(okPl);
  $("ex").value.split(",").forEach(function(x){x=x.trim();if(okPl(x)&&pls.indexOf(x)<0)pls.push(x)});
- var all=[],i,j;
+ var all=[],i,j,cmap={};
  for(i=0;i<pls.length;i++){
   say("প্লেলিস্ট পড়া হচ্ছে ("+bn(i+1)+"/"+bn(pls.length)+")...");
   var ids=await getIds(pls[i]);
-  ids.forEach(function(x){if(all.indexOf(x)<0)all.push(x)});
+  ids.forEach(function(x){if(all.indexOf(x)<0){all.push(x);cmap[x]=pls[i]}});
  }
  if(!all.length){say("প্লেলিস্টে কোনো গান পাওয়া যায়নি। প্লেলিস্টটি সবার জন্য খোলা (পাবলিক) কিনা দেখুন।");$("go").disabled=false;return}
  say("মোট "+bn(all.length)+"টি ভিডিও পাওয়া গেছে। এখন প্রতিটির সময় মাপা হচ্ছে। এতে কয়েক মিনিট লাগবে। পাতা বন্ধ করবেন না।");
@@ -100,7 +100,7 @@ $("go").onclick=async function(){
  for(i=fresh.length-1;i>0;i--){j=Math.floor(Math.random()*(i+1));var tmp=fresh[i];fresh[i]=fresh[j];fresh[j]=tmp}
  var songs=kept.concat(fresh),items=[],jn=0;
  songs.forEach(function(id,n){
-  items.push({id:id,d:good[id].d,t:good[id].t});
+  items.push({id:id,d:good[id].d,t:good[id].t,p:cmap[id]||""});
   if((n+1)%EVERY===0)items.push({j:STATIONS[jn++%STATIONS.length],d:JD});
  });
  var total=0;items.forEach(function(it){total+=it.d});
