@@ -249,7 +249,8 @@ function locate(ms){
  for(i=0;i<S.items.length;i++){if(t<acc+S.items[i].d)return {i:i,off:t-acc};acc+=S.items[i].d}
  return {i:0,off:0};
 }
-function stopJ(){try{if(jAudio){jAudio.pause();jAudio=null}}catch(e){}}
+var AD=false;
+function stopJ(){AD=false;try{if(jAudio){jAudio.pause();jAudio=null}}catch(e){}}
 function nextSong(i){var n=S.items.length,k;for(k=1;k<=n;k++){var it=S.items[(i+k)%n];if(it.id)return it}return null}
 function radioSched(){
  if(AZ)return;
@@ -303,7 +304,7 @@ function playAd(off,i){
  var a=new Audio(driveUrl(ad.u));jAudio=a;
  a.onerror=function(){if(jAudio===a&&radioOn&&mode==="radio"&&!cur)speakJ("j1",off)};
  a.onloadedmetadata=function(){try{if(off<a.duration-0.5)a.currentTime=off;else a.pause()}catch(e){}};
- $("np").textContent="📢 বিজ্ঞাপন"+(ad.t?": "+ad.t:"");
+ AD=true;$("np").textContent="📢 বিজ্ঞাপন";
  var p=a.play();if(p&&p.catch)p.catch(function(){});
 }
 function playJingle(k,off,i){
@@ -362,13 +363,16 @@ function statTick(){
  else if(isCreator&&LV.on)m="🔴 আপনি লাইভে আছেন"+(mode==="break"?" (বিরতি)":"");
  else if(!isCreator&&follow&&follow.indexOf("live:")===0)m="🔴 এখন বিএলবিডি রেডিওতে সরাসরি লাইভ সম্প্রচার চলছে — সঞ্চালনায়: "+(LIVEBY||"ক্রিয়েটর");
  else if(started&&!radioOn&&!isCreator&&mode==="radio")m="চলন্ত অবস্থায় রেডিও থামানো হয়েছে, পুনরায় প্লে করলে চলমান অবস্থা থেকে শুনতে পাবেন";
+ else if(AD)m="📢 বিজ্ঞাপন চলছে। শেষ হলে গান আবার শুরু হবে";
  else if(AZ)m="🕌 আজান চলছে। আজান শেষে রেডিও আবার চলবে";
  else if(radioOn&&mode==="radio")m="রেডিও চলছে";
  var e=$("stt");
  if(e.textContent!==m)e.textContent=m;
  e.hidden=!m;
  var sc=$("stc"),isL=!isCreator&&follow&&follow.indexOf("live:")===0&&LIVECU;
- if(isL){sc.href=LIVECU;sc.textContent="📺 চ্যানেল: "+(LIVECH||"দেখুন");sc.hidden=false}else sc.hidden=true;
+ if(isL){sc.href=LIVECU;sc.textContent="📺 চ্যানেল: "+(LIVECH||"দেখুন");sc.hidden=false}
+ else if(AD&&!isCreator){sc.href="../";sc.textContent="📱 মনের আলো (Light of Mind) অ্যাপ ও ওয়েবসাইট দেখুন";sc.hidden=false}
+ else sc.hidden=true;
 }
 setInterval(statTick,1000);statTick();
 
@@ -850,7 +854,8 @@ $("vs").onclick=function(){
 
 /* ===== লাইভ কণ্ঠ (ফ্রি WebRTC, ফায়ারবেস দিয়ে সংযোগ ঠিক করা) ===== */
 var LV={pc:null,lid:"",poll:null,tries:0,peers:{},seen:{},gq:{},fresh:{},uidPeer:{},hb:null,mic:null,ctx:null,dest:null,micGain:null,gGain:null,amb:null,rt:null,on:false,got:false};
-var ICE=[{urls:"stun:stun.l.google.com:19302"}];
+var ICE=[{urls:"stun:stun.l.google.com:19302"},{urls:["turn:openrelay.metered.ca:80","turn:openrelay.metered.ca:443","turn:openrelay.metered.ca:443?transport=tcp"],username:"openrelayproject",credential:"openrelayproject"}];
+function iceList(){return Array.isArray(C.ice)&&C.ice.length?C.ice:ICE}
 function lvUrl(p){var b=fbBase();return b?b+"/live"+(p?"/"+p:"")+".json":""}
 function jput(p,o){var u=lvUrl(p);return u?fetch(u,{method:"PUT",body:JSON.stringify(o)}).catch(function(){}):Promise.resolve()}
 function jget(p){var u=lvUrl(p);return u?fetch(u,{cache:"no-store"}).then(function(r){return r.json()}).catch(function(){return null}):Promise.resolve(null)}
@@ -949,7 +954,7 @@ function creatorPoll(){
  });
 }
 function connect(id,guest){
- var pc=new RTCPeerConnection({iceServers:ICE});LV.peers[id]=pc;LV.seen[id]=1;
+ var pc=new RTCPeerConnection({iceServers:iceList()});LV.peers[id]=pc;LV.seen[id]=1;
  if(guest){
   LV.mic.getAudioTracks().forEach(function(t){pc.addTrack(t,LV.mic)});
   pc.ontrack=function(e){
@@ -984,10 +989,11 @@ function stopVoice(){
 /* শ্রোতা ও গেস্টের দিক */
 function joinLive(stream){
  if(LV.pc||!fbBase()||!window.RTCPeerConnection)return;
- if(LV.tries>=3)return;
+ if(LV.tries>=3){if(Date.now()-(LV.lastTry||0)>60000)LV.tries=0;else return}
+ LV.lastTry=Date.now();
  LV.tries++;
  var guest=!!stream,lid="l"+Math.random().toString(36).slice(2,9);
- var pc=new RTCPeerConnection({iceServers:ICE});LV.pc=pc;LV.lid=lid;LV.got=false;
+ var pc=new RTCPeerConnection({iceServers:iceList()});LV.pc=pc;LV.lid=lid;LV.got=false;
  pc.ontrack=function(e){
   var s=e.streams[0];if(!s)return;
   var a=$("la");a.srcObject=s;a.play().catch(function(){});
@@ -999,7 +1005,7 @@ function joinLive(stream){
  clearInterval(LV.hb);LV.hb=setInterval(function(){jput("req/"+lid,{g:guest?1:0,n:NICK||"শ্রোতা",u:UID,ts:Date.now()})},10000);
  var n=0;
  LV.poll=setInterval(function(){
-  if(++n>20){leaveLive();say("লাইভ কণ্ঠ যুক্ত হতে পারেনি। গান শুনতে থাকুন।");return}
+  if(++n>20){leaveLive();say("লাইভ কণ্ঠ যুক্ত হতে পারেনি। আপনার নেটওয়ার্কে বাধা থাকতে পারে, ওয়াইফাই চেষ্টা করুন। আমরা আবার চেষ্টা করব।");return}
   jget("off/"+lid).then(function(o){
    if(!o||!o.sdp||LV.got||LV.lid!==lid)return;
    LV.got=true;clearInterval(LV.poll);
@@ -1137,7 +1143,7 @@ setInterval(presTick,20000);setTimeout(presTick,2500);
 
 /* শুরু */
 fetch("config.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
- return fetch("extra.json",{cache:"no-cache"}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}}).then(function(x){["azan","ads","adSec"].forEach(function(k){if(x&&x[k]!=null)d[k]=x[k]});return d})
+ return fetch("extra.json",{cache:"no-cache"}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}}).then(function(x){["azan","ads","adSec","ice"].forEach(function(k){if(x&&x[k]!=null)d[k]=x[k]});return d})
 }).then(function(d){
  C=d;$("wl").textContent="";
  $("sp").hidden=true;
