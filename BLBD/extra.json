@@ -1,0 +1,16 @@
+{
+ "azan": {
+  "default": "cCt1g8FDGBw",
+  "fajr": "oM5hNuAmWs0"
+ },
+ "ads": [
+  {
+   "t": "বিজ্ঞাপন ১",
+   "u": "https://drive.google.com/file/d/1y-rYErBBgpZsF3jv-6K9Vo1tEacyMC7d/view?usp=drivesdk"
+  },
+  {
+   "t": "বিজ্ঞাপন ২",
+   "u": "https://drive.google.com/file/d/1caj2mPWvHOUCJCqtzlatFLiZX9il8G/view?usp=drivesdk"
+  }
+ ]
+}
