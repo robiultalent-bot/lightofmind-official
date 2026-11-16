@@ -37,6 +37,8 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
 #cl button{font-size:14px;padding:4px 10px;margin:4px 6px 0 0}
 .sup{font-size:16px;opacity:.9;margin:8px 0}
 #artl a{display:block;margin:6px 0}
+.stt{background:#1c2a52;border-radius:12px;padding:10px 14px;margin:8px 0;font-weight:700}
+#cal p{margin:2px 0}
 </style>
 </head>
 <body>
@@ -52,6 +54,12 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
 
 <div class="c">
  <div class="vw" aria-hidden="true"><div id="yt"></div></div>
+ <p id="stt" class="stt" aria-live="off" hidden></p>
+ <a id="stc" class="bk" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+ <div class="c" id="nt" aria-live="off" hidden></div>
+ <div class="c" id="cal" aria-live="off">
+  <p id="cal1"></p><p id="cal2"></p><p id="cal3"></p>
+ </div>
  <p id="pc" aria-live="off">👥 এখন রেডিও শুনছেন: ...</p>
  <p id="np" aria-live="polite">এখনো কিছু চলছে না।</p>
  <a id="sub" class="bk" href="#" target="_blank" rel="noopener noreferrer" hidden>📺 সাবস্ক্রাইব করুন</a>
@@ -66,6 +74,38 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
 <div class="c">
  <div id="lvb" role="status" aria-live="polite"><b>লাইভ বন্ধ আছে।</b></div>
  <div id="lvv"></div>
+<div class="c" id="gate" hidden>
+  <h2 id="gh" tabindex="-1" style="margin-top:0">লাইভে আসতে অনুমোদন লাগে</h2>
+  <div id="g1">
+   <p>আপনার কি লাইভ করার অনুমোদন আছে?</p>
+   <button id="gy" type="button">হ্যাঁ, আছে</button>
+   <button id="gn" type="button" class="sec">না, আবেদন করব</button>
+  </div>
+  <div id="g2" hidden>
+   <label for="gc">অনুমোদনের পর পাওয়া কোডটি এখানে দিন</label>
+   <input id="gc" type="password" inputmode="numeric" autocomplete="off">
+   <button id="gok" type="button">নিশ্চিত করুন</button>
+  </div>
+  <div id="g4" hidden>
+   <p>অনুমোদিত। কী করবেন?</p>
+   <label for="g4n">অনুষ্ঠানে আপনার নাম (সবাই দেখবে)</label>
+   <input id="g4n" type="text" maxlength="40" autocomplete="off">
+   <button id="g4a" type="button" class="red">🔴 অনুষ্ঠান করব (লাইভ)</button>
+   <button id="g4b" type="button">⚙️ স্টুডিও ব্যবস্থাপনা</button>
+  </div>
+  <div id="g3" hidden>
+   <p>আবেদন করতে নিচের তথ্য দিন। সব ঘর পূরণ করা বাধ্যতামূলক।</p>
+   <label for="an">আপনার নাম</label><input id="an" type="text" maxlength="60" autocomplete="off">
+   <label for="acn">ইউটিউব চ্যানেলের নাম</label><input id="acn" type="text" maxlength="80" autocomplete="off">
+   <label for="acl">ইউটিউব চ্যানেলের লিংক</label><input id="acl" type="url" maxlength="200" autocomplete="off">
+   <label for="act">যোগাযোগের নম্বর বা ইমেইল</label><input id="act" type="text" maxlength="80" autocomplete="off">
+   <label for="atp">কী বিষয়ে কথা বলতে চান</label><input id="atp" type="text" maxlength="200" autocomplete="off">
+   <label for="asm">আপনার কণ্ঠ বা কাজের একটি নমুনার লিংক</label><input id="asm" type="url" maxlength="200" autocomplete="off">
+   <button id="aps" type="button">আবেদন পাঠান</button>
+  </div>
+  <button id="gx" type="button" class="sec">বন্ধ করুন</button>
+  <p id="gm" role="status" aria-live="polite"></p>
+ </div>
  <div id="pinbox" hidden>
   <label for="pin">ক্রিয়েটর পিন</label>
   <input id="pin" type="password" autocomplete="off">
@@ -147,12 +187,15 @@ function fbBase(){var u=fb();return u?u.replace(/\/now\.json$/,""):""}
 function push(o){
  var u=fb();if(!u)return;
  o.ts=Date.now();o.beat=Date.now();if(isCreator&&o.mode!=="off")o.live=1;
+ if(isCreator&&NICK)o.by=NICK;
+ if(isCreator&&PRES&&PRES.cu){o.ch=PRES.ch;o.cu=PRES.cu}
  try{fetch(u,{method:"PUT",body:JSON.stringify(o)})}catch(e){}
 }
 function pull(){
  var u=fb();if(!u||isCreator)return;
  fetch(u,{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
   liveWatch(d);
+  LIVEBY=(d&&d.mode==="live"&&d.by)?String(d.by).slice(0,40):"";LIVECH=(d&&d.mode==="live"&&d.ch)?String(d.ch).slice(0,80):"";LIVECU=(d&&d.mode==="live"&&/^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(d.cu||""))?d.cu:"";
   if(!d||d.mode==="off"||Date.now()-(d.beat||0)>60000){
    if(follow){follow="";if(started){say("লাইভ শেষ। রেডিও চলছে।");radio()}}
    return;
@@ -190,7 +233,7 @@ function showSub(name,url){
 }
 
 /* সার্ভার-হিসাব করা সময়সূচি: ফায়ারবেসের /blbd/schedule থেকে। ঘড়ি ধরে সবাই একই গানের একই জায়গায় থাকে */
-var S=null,sTried=false,sTimer=null,jAudio=null,jCache={},radioOn=false,CURV="",bufAt=0;
+var LIVEBY="",LIVECH="",LIVECU="",S=null,sTried=false,sTimer=null,jAudio=null,jCache={},radioOn=false,CURV="",bufAt=0;
 function schedUrl(){var b=fbBase();return b?b+"/schedule.json":""}
 var SP=null;
 function ensureSched(){if(!SP)SP=loadSched();return SP}
@@ -209,6 +252,7 @@ function locate(ms){
 function stopJ(){try{if(jAudio){jAudio.pause();jAudio=null}}catch(e){}}
 function nextSong(i){var n=S.items.length,k;for(k=1;k<=n;k++){var it=S.items[(i+k)%n];if(it.id)return it}return null}
 function radioSched(){
+ if(AZ)return;
  clearTimeout(sTimer);
  var p=locate(Date.now());playItem(p.i,p.off);
 }
@@ -224,7 +268,7 @@ function playItem(i,off){
   try{
    var st=player.getPlayerState();
    if(CURV===it.id&&(st===1||st===2||st===3)){player.seekTo(off+0.5,true);player.playVideo()}
-   else{player.loadVideoById({videoId:it.id,startSeconds:Math.floor(off+1)});CURV=it.id}
+   else{R.fix=Date.now();try{player.mute()}catch(e){}player.loadVideoById({videoId:it.id,startSeconds:Math.floor(off+1)});CURV=it.id;setTimeout(function(){R.fix=0;try{player.unMute()}catch(e){}},4000)}
    player.setVolume(+$("vol").value);
   }catch(e){}
   var ch=chanOf(it);showSub(ch?ch.name:"",ch?ch.url:"");setLk(it.id);
@@ -248,7 +292,22 @@ function speakJ(k,off){
  var u=new SpeechSynthesisUtterance(JT[k]||"আপনি শুনছেন বিএলবিডি।");u.lang="bn-BD";
  speechSynthesis.cancel();speechSynthesis.speak(u);
 }
+function driveUrl(u){
+ var m=String(u||"").match(/\/d\/([A-Za-z0-9_-]{10,})/)||String(u||"").match(/[?&]id=([A-Za-z0-9_-]{10,})/);
+ return m?"https://drive.google.com/uc?export=download&id="+m[1]:"";
+}
+function playAd(off,i){
+ var it=S&&S.items[i],ad=(C.ads||[])[it&&it.a!=null?it.a:0];
+ if(!ad||!driveUrl(ad.u)){speakJ("j1",off);return}
+ stopJ();
+ var a=new Audio(driveUrl(ad.u));jAudio=a;
+ a.onerror=function(){if(jAudio===a&&radioOn&&mode==="radio"&&!cur)speakJ("j1",off)};
+ a.onloadedmetadata=function(){try{if(off<a.duration-0.5)a.currentTime=off;else a.pause()}catch(e){}};
+ $("np").textContent="📢 বিজ্ঞাপন"+(ad.t?": "+ad.t:"");
+ var p=a.play();if(p&&p.catch)p.catch(function(){});
+}
 function playJingle(k,off,i){
+ if(k==="ad"){playAd(off,i);return}
  var u=fbBase();
  if(!u){speakJ(k,off);return}
  var get=jCache[k]?Promise.resolve(jCache[k]):fetch(u+"/jingles/"+encodeURIComponent(k)+".json").then(function(r){return r.json()}).then(function(d){if(d&&d.a)jCache[k]=d;return d});
@@ -263,7 +322,7 @@ function playJingle(k,off,i){
 }
 /* আটকে গেলে পরের গানে যাওয়া, আর অনেক পিছিয়ে পড়লে ঘড়ির জায়গায় ফেরা */
 setInterval(function(){
- if(!(S&&radioOn&&mode==="radio"&&!cur&&ready))return;
+ if(!(S&&radioOn&&mode==="radio"&&!cur&&ready&&!AZ))return;
  try{
   if(bufAt&&Date.now()-bufAt>12000){bufAt=0;CURV="";playItem(R.sIdx+1,0);return}
   var p=locate(Date.now());
@@ -280,19 +339,130 @@ function dh(){
  p.forEach(function(x){if(x.type==="hour")h=+x.value%24;if(x.type==="minute")m=+x.value});return {h:h,m:m};
 }
 function per(h){return h<4?"রাত":h<6?"ভোর":h<12?"সকাল":h<15?"দুপুর":h<17?"বিকাল":h<19?"সন্ধ্যা":"রাত"}
-var lastH=-1;
+var lastH=-1,TMSG="";
 setInterval(function(){
  var d=dh();
  if(d.m===0&&d.h!==lastH){
   lastH=d.h;
-  if(!$("hr").checked||!radioOn||!window.speechSynthesis)return;
-  var t="এখন সময় "+per(d.h)+" "+bnum(d.h%12||12)+":০০ টা। আপনি শুনছেন বিএলবিডি।";
+  var t="এখন সময় "+per(d.h)+" "+bnum(d.h%12||12)+":০০ টা ("+(d.h%12||12)+":00 "+(d.h<12?"AM":"PM")+")";
+  if(radioOn||isCreator){TMSG=t;setTimeout(function(){TMSG=""},9000)}
+  if(!$("hr").checked||!radioOn||AZ||!window.speechSynthesis)return;
+  t="এখন সময় "+per(d.h)+" "+bnum(d.h%12||12)+":০০ টা। আপনি শুনছেন বিএলবিডি।";
   var old=+$("vol").value;try{player.setVolume(Math.min(old,15))}catch(e){}
   var u=new SpeechSynthesisUtterance(t);u.lang="bn-BD";
   u.onend=function(){try{player.setVolume(old)}catch(e){}};
   speechSynthesis.cancel();speechSynthesis.speak(u);say(t);
  }
 },20000);
+
+/* পর্দার বার্তা: যখন যা চলছে শুধু তা দেখায়, কাজ শেষে নিজে মুছে যায় */
+function statTick(){
+ var m="";
+ if(TMSG)m="🕒 "+TMSG;
+ else if(isCreator&&LV.on)m="🔴 আপনি লাইভে আছেন"+(mode==="break"?" (বিরতি)":"");
+ else if(!isCreator&&follow&&follow.indexOf("live:")===0)m="🔴 এখন বিএলবিডি রেডিওতে সরাসরি লাইভ সম্প্রচার চলছে — সঞ্চালনায়: "+(LIVEBY||"ক্রিয়েটর");
+ else if(started&&!radioOn&&!isCreator&&mode==="radio")m="চলন্ত অবস্থায় রেডিও থামানো হয়েছে, পুনরায় প্লে করলে চলমান অবস্থা থেকে শুনতে পাবেন";
+ else if(AZ)m="🕌 আজান চলছে। আজান শেষে রেডিও আবার চলবে";
+ else if(radioOn&&mode==="radio")m="রেডিও চলছে";
+ var e=$("stt");
+ if(e.textContent!==m)e.textContent=m;
+ e.hidden=!m;
+ var sc=$("stc"),isL=!isCreator&&follow&&follow.indexOf("live:")===0&&LIVECU;
+ if(isL){sc.href=LIVECU;sc.textContent="📺 চ্যানেল: "+(LIVECH||"দেখুন");sc.hidden=false}else sc.hidden=true;
+}
+setInterval(statTick,1000);statTick();
+
+/* বাংলা, ইংরেজি ও হিজরি তারিখ (ঢাকার সময়)। রাত ১২টায় ইংরেজি ও বাংলা, মাগরিবের পর হিজরি বদলায় */
+function dhk(){
+ var p=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Dhaka",year:"numeric",month:"numeric",day:"numeric",hour:"numeric",minute:"numeric",hour12:false}).formatToParts(new Date()),o={};
+ p.forEach(function(x){o[x.type]=+x.value});
+ o.hour=o.hour%24;return o;
+}
+var EM=["জানুয়ারি","ফেব্রুয়ারি","মার্চ","এপ্রিল","মে","জুন","জুলাই","আগস্ট","সেপ্টেম্বর","অক্টোবর","নভেম্বর","ডিসেম্বর"];
+var BM=["বৈশাখ","জ্যৈষ্ঠ","আষাঢ়","শ্রাবণ","ভাদ্র","আশ্বিন","কার্তিক","অগ্রহায়ণ","পৌষ","মাঘ","ফাল্গুন","চৈত্র"];
+var HM=["মুহাররম","সফর","রবিউল আউয়াল","রবিউস সানি","জমাদিউল আউয়াল","জমাদিউস সানি","রজব","শাবান","রমজান","শাওয়াল","জিলকদ","জিলহজ"];
+var WD=["রবিবার","সোমবার","মঙ্গলবার","বুধবার","বৃহস্পতিবার","শুক্রবার","শনিবার"];
+function leap(y){return (y%4===0&&y%100!==0)||y%400===0}
+function bangla(y,m,d){
+ /* বাংলাদেশের সংশোধিত পঞ্জিকা: ১৪ এপ্রিল নববর্ষ */
+ var by=(m>4||(m===4&&d>=14))?y-593:y-594;
+ var start=Date.UTC((m>4||(m===4&&d>=14))?y:y-1,3,14);
+ var day=Math.floor((Date.UTC(y,m-1,d)-start)/86400000);
+ var gy=(m>4||(m===4&&d>=14))?y:y-1;
+ var len=[31,31,31,31,31,30,30,30,30,30,leap(gy+1)?31:30,30],i=0;
+ while(i<11&&day>=len[i]){day-=len[i];i++}
+ return {y:by,m:i,d:day+1};
+}
+function maghribMin(y,m,d){
+ var doy=Math.floor((Date.UTC(y,m-1,d)-Date.UTC(y,0,0))/86400000);
+ return Math.round(1082-47*Math.cos(2*Math.PI*(doy-355)/365));
+}
+function hijri(y,m,d,afterMaghrib){
+ /* বাংলাদেশে চাঁদ দেখা সাধারণত সৌদির একদিন পরে, তাই আনুমানিক হিসাব */
+ var dt=new Date(Date.UTC(y,m-1,d)+(afterMaghrib?0:-86400000));
+ var f=new Intl.DateTimeFormat("en-u-ca-islamic-umalqura",{timeZone:"UTC",year:"numeric",month:"numeric",day:"numeric"}).formatToParts(dt),o={};
+ f.forEach(function(x){o[x.type]=+x.value});
+ return o;
+}
+function calTick(){
+ try{
+  var t=dhk(),wd=new Date(Date.UTC(t.year,t.month-1,t.day)).getUTCDay();
+  var b=bangla(t.year,t.month,t.day);
+  var after=(t.hour*60+t.minute)>=maghribMin(t.year,t.month,t.day);
+  $("cal1").textContent="📅 "+WD[wd]+", "+bnum(t.day)+" "+EM[t.month-1]+" "+bnum(t.year);
+  $("cal2").textContent="🌾 বাংলা: "+bnum(b.d)+" "+BM[b.m]+" "+bnum(b.y)+" বঙ্গাব্দ";
+  try{var hj=hijri(t.year,t.month,t.day,after);$("cal3").textContent="🌙 হিজরি (আনুমানিক): "+bnum(hj.day)+" "+HM[(hj.month||1)-1]+" "+bnum(hj.year)+" হিজরি"}catch(e2){$("cal3").hidden=true}
+ }catch(e){$("cal").hidden=true}
+}
+setInterval(calTick,30000);calTick();
+
+
+/* ওয়াক্তের আজান: আলাদান থেকে ঢাকার সময় নিয়ে ইউটিউবের আজান চালায়, শেষে রেডিও আবার চলতি জায়গায় ফেরে */
+var AZ=null,AZT=null,AZDONE={},AZM=null;
+var AZN={fajr:"ফজর",dhuhr:"জোহর",asr:"আসর",maghrib:"মাগরিব",isha:"এশা"};
+function azKey(){var t=dhk();return t.year+"-"+t.month+"-"+t.day}
+function azLoad(){
+ var key=azKey();
+ try{var c=JSON.parse(localStorage.getItem("blbd_az")||"null");if(c&&c.k===key&&c.t){AZT=c;return}}catch(e){}
+ fetch("https://api.aladhan.com/v1/timingsByCity?city=Dhaka&country=Bangladesh&method=1").then(function(r){return r.json()}).then(function(d){
+  var x=d&&d.data&&d.data.timings;if(!x)return;
+  var o={k:key,t:{}};
+  [["fajr","Fajr"],["dhuhr","Dhuhr"],["asr","Asr"],["maghrib","Maghrib"],["isha","Isha"]].forEach(function(p){
+   var m=String(x[p[1]]||"").match(/(\d{1,2}):(\d{2})/);if(m)o.t[p[0]]=(+m[1])*3600+(+m[2])*60;
+  });
+  if(Object.keys(o.t).length===5){AZT=o;try{localStorage.setItem("blbd_az",JSON.stringify(o))}catch(e){}}
+ }).catch(function(){});
+}
+function endAzan(){
+ if(!AZ)return;
+ AZ=null;try{player.stopVideo()}catch(e){}
+ CURV="";say("আজান শেষ। রেডিও আবার চলছে।");
+ if(radioOn&&mode==="radio"&&!cur){if(S)radioSched();else radio()}
+}
+function startAzan(name){
+ var cfg=(AZM&&okId(AZM["default"]))?AZM:(C.azan||{}),id=cfg[name]||cfg["default"];
+ if(!okId(id))return;
+ AZ={until:Date.now()+600000,name:name};
+ clearTimeout(sTimer);stopJ();CURV="";
+ try{player.loadVideoById(id);player.unMute();player.setVolume(+$("vol").value)}catch(e){}
+ $("np").textContent="🕌 "+AZN[name]+"ের আজান চলছে।";
+ say(AZN[name]+"ের আজান চলছে। শেষ হলে রেডিও আবার চলবে।");
+}
+function azTick(){
+ try{
+  if(AZ){if(Date.now()>AZ.until)endAzan();return}
+  if(!AZT||AZT.k!==azKey()){azLoad();return}
+  if(!(radioOn&&mode==="radio"&&!cur&&!isCreator&&ready))return;
+  var t=dhk(),sec=t.hour*3600+t.minute*60;
+  Object.keys(AZT.t).forEach(function(n){
+   var k=AZT.k+n;
+   if(!AZDONE[k]&&sec>=AZT.t[n]&&sec<AZT.t[n]+120){AZDONE[k]=1;if(!AZ)startAzan(n)}
+  });
+ }catch(e){}
+}
+setInterval(azTick,5000);setTimeout(azLoad,3000);
+setTimeout(function(){cmGet("/azanmap.json").then(function(m){if(m&&okId(m["default"]))AZM=m})},3500);
+
 /* স্টুডিও পরিবেশের নরম শব্দ */
 var ac=null,amb=null;
 $("am").onchange=function(){
@@ -386,12 +556,20 @@ window.onYouTubeIframeAPIReady=function(){
  player=new YT.Player("yt",{width:"100%",height:"100%",playerVars:{playsinline:1,rel:0,controls:0,disablekb:1,fs:0,modestbranding:1,iv_load_policy:3},events:{
   onReady:function(){ready=true;player.setVolume(+$("vol").value);if(started&&mode==="radio")radio()},
   onStateChange:function(e){
+   if(e.data===0&&AZ){endAzan();return}
    bufAt=(e.data===3)?Date.now():0;
    if(e.data===1){try{var vd=player.getVideoData();if(vd&&okId(vd.video_id))setLk(vd.video_id);if(vd&&vd.author&&!$("sub").href.match(/youtube\.com\/(channel|results)/))showSub(vd.author,"")}catch(x){}}
    if(e.data===5&&R.pend){radioGot();return}
    if(e.data===1&&cur){
     try{var v=player.getVideoData();if(v&&v.author){cur.channel=cur.channel||v.author;showSub(cur.channel,cur.channelUrl)}}catch(x){}
     try{var v2=player.getVideoData();if(v2&&v2.title&&/^ইউটিউব ভিডিও/.test(cur.title)){cur.title=v2.title;$("np").textContent="চলছে: "+cur.title+(cur.channel?" - "+cur.channel:"");if(isCreator)addLib(cur)}}catch(x){}
+   }
+   if(e.data===1&&R.fix&&mode==="radio"&&!cur&&S){
+    try{
+     var pp=locate(Date.now()),it2=S.items[pp.i];
+     if(it2&&it2.id===CURV&&Math.abs(player.getCurrentTime()-pp.off)>2)player.seekTo(pp.off+0.3,true);
+    }catch(x){}
+    R.fix=0;setTimeout(function(){try{player.unMute()}catch(x){}},400);
    }
    if(e.data===1&&mode==="radio"&&!cur&&R.got&&!S)radioDur();
    if(e.data===0&&mode==="break"&&cur)say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");
@@ -422,6 +600,7 @@ $("vol").oninput=function(){try{if(ready)player.setVolume(+$("vol").value)}catch
 /* ক্রিয়েটর পিন (ঐচ্ছিক) */
 function sha(t){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)).then(function(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return ("0"+x.toString(16)).slice(-2)}).join("")})}
 $("go").onclick=function(){
+ if(C.adminHash&&C.adminSalt){openGate();return}
  if(C.creatorPinSha256){$("pinbox").hidden=false;$("pin").focus();say("ক্রিয়েটর পিন দিন।");return}
  goLive();
 };
@@ -431,6 +610,85 @@ $("pinok").onclick=function(){
   else{say("পিন ভুল হয়েছে।");$("pin").value=""}
  }).catch(function(){say("এই ব্রাউজারে পিন যাচাই করা যাচ্ছে না।")});
 };
+
+
+/* লাইভের একমাত্র গেট: ক্রিয়েটর কোড, আবেদন, আর গোপন এডমিন প্রবেশ */
+var PRES=null,GT={tries:0,until:0};
+function pbk(pin,salt){
+ return crypto.subtle.importKey("raw",new TextEncoder().encode(String(pin)),"PBKDF2",false,["deriveBits"]).then(function(k){
+  return crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(String(salt)),iterations:100000,hash:"SHA-256"},k,256);
+ }).then(function(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return ("0"+x.toString(16)).slice(-2)}).join("")});
+}
+function admCred(){
+ return cmGet("/admin.json").then(function(a){
+  if(a&&typeof a.s==="string"&&typeof a.h==="string"&&a.s&&a.h)return {s:a.s,h:a.h};
+  return {s:C.adminSalt,h:C.adminHash};
+ });
+}
+function gm(t){$("gm").textContent=t}
+function gstep(n){["g1","g2","g3","g4"].forEach(function(k,i){$(k).hidden=(i+1!==n)})}
+function openGate(){
+ $("gate").hidden=false;gstep(1);gm("");$("gh").focus();$("go").hidden=true;
+ say("লাইভে আসতে অনুমোদন লাগে। আপনার কি লাইভ করার অনুমোদন আছে? হ্যাঁ বা না বোতাম আছে।");
+}
+function closeGate(){$("gate").hidden=true;$("go").hidden=false;$("go").focus()}
+$("gx").onclick=closeGate;
+$("gy").onclick=function(){gstep(2);gm("");$("gc").value="";$("gc").focus();say("অনুমোদনের পর পাওয়া কোডটি এখানে দিন।")};
+$("gn").onclick=function(){gstep(3);gm("");$("an").focus();say("আবেদনের ফর্ম। সব ঘর পূরণ করুন।")};
+$("gok").onclick=function(){
+ var v=$("gc").value.trim();if(!v){gm("কোড লিখুন।");return}
+ if(GT.tries>=5&&Date.now()<GT.until){gm("অনেকবার ভুল হয়েছে। এক মিনিট পরে চেষ্টা করুন।");say("এক মিনিট পরে চেষ্টা করুন।");return}
+ admCred().then(function(cr){return pbk(v,cr.s).then(function(h){return h===cr.h?"adm":h})}).then(function(h){
+  if(h==="adm"){GT.tries=0;GT.adm=v;$("gc").value="";gstep(4);$("g4n").value=NICK||"বিএলবিডি টিম";$("g4n").focus();say("অনুমোদিত। অনুষ্ঠান করবেন, নাকি স্টুডিও ব্যবস্থাপনা?");return null}
+  return sha(v).then(function(k){return cmGet("/creators/"+k+".json")}).then(function(c){
+   if(c&&c.n){
+    GT.tries=0;PRES={n:String(c.n).slice(0,40),ch:String(c.ch||"").slice(0,80),cu:String(c.u||"")};
+    NICK=PRES.n;$("gate").hidden=true;$("gc").value="";goLive();return;
+   }
+   GT.tries++;if(GT.tries>=5)GT.until=Date.now()+60000;
+   gm("কোড ঠিক নয়।");say("কোড ঠিক নয়।");$("gc").value="";
+  });
+ }).catch(function(){gm("এই ব্রাউজারে কোড যাচাই করা যাচ্ছে না।")});
+};
+$("g4a").onclick=function(){
+ var n=$("g4n").value.trim().slice(0,40)||"বিএলবিডি টিম";
+ PRES={n:n,ch:"",cu:""};NICK=n;GT.adm="";$("gate").hidden=true;goLive();
+};
+$("g4b").onclick=function(){
+ try{sessionStorage.setItem("blbd_adm",GT.adm)}catch(e){}GT.adm="";location.href="studio.html";
+};
+function okYt(u){return /^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//.test(u||"")}
+$("aps").onclick=function(){
+ var f={n:$("an").value.trim(),cn:$("acn").value.trim(),cl:$("acl").value.trim(),ct:$("act").value.trim(),tp:$("atp").value.trim(),sm:$("asm").value.trim()};
+ if(!f.n||!f.cn||!f.cl||!f.ct||!f.tp||!f.sm){gm("সব ঘর পূরণ করুন।");say("সব ঘর পূরণ করুন।");return}
+ if(!okYt(f.cl)){gm("চ্যানেলের লিংক ইউটিউবের হতে হবে, https দিয়ে শুরু।");say("চ্যানেলের লিংক ঠিক নয়।");return}
+ if(!/^https:\/\//.test(f.sm)){gm("নমুনার লিংক https দিয়ে শুরু হতে হবে।");say("নমুনার লিংক ঠিক নয়।");return}
+ try{if(Date.now()-(+localStorage.getItem("blbd_ap")||0)<600000){gm("একটু আগেই আবেদন পাঠানো হয়েছে।");return}}catch(e){}
+ f.ts=Date.now();
+ $("aps").disabled=true;
+ fetch(cbase()+"/apps.json",{method:"POST",body:JSON.stringify(f)}).then(function(r){
+  if(!r.ok)throw 0;
+  try{localStorage.setItem("blbd_ap",String(Date.now()))}catch(e){}
+  gstep(1);gm("আবেদন জমা হয়েছে। লাইভ চলার সময় রেডিওতে এসে \"গেস্ট হিসেবে কথা বলতে চাই\" বোতাম চেপে অনুরোধ পাঠান। আমরা সরাসরি কথা বলে অনুমোদন দেব।");
+  say("আবেদন জমা হয়েছে।");
+ }).catch(function(){gm("আবেদন পাঠানো যায়নি। পরে আবার চেষ্টা করুন।")}).then(function(){$("aps").disabled=false});
+};
+/* এডমিনের ঘোষণা ও গান বন্ধের আদেশ */
+function ntTick(){
+ cmGet("/notice.json").then(function(n){
+  var e=$("nt"),ok=n&&n.t&&n.until>Date.now();
+  if(!ok){e.hidden=true;e.textContent="";return}
+  var t="📢 "+String(n.t).slice(0,300);
+  if(e.textContent!==t)e.textContent=t;e.hidden=false;
+ });
+}
+setInterval(ntTick,30000);setTimeout(ntTick,3000);
+setInterval(function(){
+ if(!(isCreator&&cur))return;
+ cmGet("/ctl.json").then(function(c){
+  if(isCreator&&cur&&c&&c.skip>cur.ts){say("এডমিন গান বন্ধ করেছেন।");$("rs").onclick()}
+ });
+},6000);
 
 /* লাইভ শুরু: ডিফল্ট গান আপনাআপনি থেমে যাবে */
 function goLive(){
@@ -879,8 +1137,10 @@ setInterval(presTick,20000);setTimeout(presTick,2500);
 
 /* শুরু */
 fetch("config.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
- C=d;$("wl").textContent=d.welcome||"";
- $("sp").hidden=!d.spinner;
+ return fetch("extra.json",{cache:"no-cache"}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}}).then(function(x){["azan","ads","adSec"].forEach(function(k){if(x&&x[k]!=null)d[k]=x[k]});return d})
+}).then(function(d){
+ C=d;$("wl").textContent="";
+ $("sp").hidden=true;
  try{
   var box=$("artl"),n=0;
   (d.radio||[]).forEach(function(r){
