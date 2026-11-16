@@ -55,7 +55,7 @@ window.onYouTubeIframeAPIReady=function(){
 };
 function waitEvent(ms){return new Promise(function(res){var t=setTimeout(function(){waitR=null;res("timeout")},ms);waitR=function(v){clearTimeout(t);waitR=null;res(v)}})}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
-fetch("config.json",{cache:"no-cache"}).then(function(r){return r.json()}).then(function(d){C=d;var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s)}).catch(function(){say("কনফিগ ফাইল লোড হয়নি।")});
+fetch("config.json",{cache:"no-cache"}).then(function(r){return r.json()}).then(function(d){return fetch("extra.json",{cache:"no-cache"}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}}).then(function(x){["azan","azanIds","ads","adSec"].forEach(function(k){if(x&&x[k]!=null)d[k]=x[k]});return d})}).then(function(d){C=d;var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s)}).catch(function(){say("কনফিগ ফাইল লোড হয়নি।")});
 $("go").disabled=true;
 async function getIds(pl){
  player.cuePlaylist({listType:"playlist",list:pl});
@@ -81,6 +81,20 @@ async function measure1(id){
  }
  if(vid!==id||!(d>0))return {e:"load"};
  return {id:id,d:d,t:(t||"গান").slice(0,100)};
+}
+function driveUrl(u){
+ var m=String(u||"").match(/\/d\/([A-Za-z0-9_-]{10,})/)||String(u||"").match(/[?&]id=([A-Za-z0-9_-]{10,})/);
+ return m?"https://drive.google.com/uc?export=download&id="+m[1]:"";
+}
+function measureAd(ad){
+ return new Promise(function(res){
+  var u=driveUrl(ad&&ad.u);if(!u){res(0);return}
+  var a=new Audio();a.preload="metadata";
+  var t=setTimeout(function(){res(0)},12000);
+  a.onloadedmetadata=function(){clearTimeout(t);var d=a.duration;res(isFinite(d)&&d>1?Math.ceil(d):0)};
+  a.onerror=function(){clearTimeout(t);res(0)};
+  a.src=u;
+ });
 }
 async function measure(id){
  var m=await measure1(id);
@@ -109,21 +123,41 @@ $("go").onclick=async function(){
  }
  var good_ids=all.filter(function(x){return good[x]});
  if(good_ids.length<2){say("চালানোর মতো গান পাওয়া যায়নি। ভিডিওগুলো বাইরে চালানোর অনুমতি দেওয়া আছে কিনা দেখুন।");$("go").disabled=false;return}
+ say("বিজ্ঞাপনের দৈর্ঘ্য মাপা হচ্ছে...");
+ var adl=C.ads||[],adLen=[],goodAds=[],adRep=[],q;
+ for(q=0;q<adl.length;q++){var L=await measureAd(adl[q]);adLen.push(L);if(L){goodAds.push(q);adRep.push((adl[q].t||("বিজ্ঞাপন "+(q+1)))+": "+L+" সেকেন্ড")}else adRep.push((adl[q].t||("বিজ্ঞাপন "+(q+1)))+": মাপা যায়নি (লিংক বা অনুমতি দেখুন)")}
+ var azRep=[];
+ try{
+  var ai=(C.azanIds||[]).filter(okId),fj="",df="";
+  for(q=0;q<ai.length;q++){
+   var mz=await measure1(ai[q]);
+   var tt=(mz&&mz.t)||"";var isF=/fajr|fajar|ফজর|فجر|subuh|sobh/i.test(tt);
+   azRep.push("আজান "+(q+1)+": "+(tt||"নাম পাওয়া যায়নি")+(isF?" → ফজর":" → সাধারণ"));
+   if(isF&&!fj)fj=ai[q];else if(!df)df=ai[q];
+  }
+  if(!df&&fj)df=fj;
+  if(df){await fetch(b+"/azanmap.json",{method:"PUT",body:JSON.stringify({"default":df,fajr:fj||df})})}
+ }catch(e){}
  var prev=null;try{prev=await fetch(b+"/schedule.json",{cache:"no-store"}).then(function(r){return r.json()})}catch(e){}
  var kept=[];
  if(prev&&prev.items)prev.items.forEach(function(it){if(it.id&&good[it.id]&&kept.indexOf(it.id)<0)kept.push(it.id)});
  var fresh=good_ids.filter(function(x){return kept.indexOf(x)<0});
  for(i=fresh.length-1;i>0;i--){j=Math.floor(Math.random()*(i+1));var tmp=fresh[i];fresh[i]=fresh[j];fresh[j]=tmp}
- var songs=kept.concat(fresh),items=[],jn=0;
+ var songs=kept.concat(fresh),items=[],jn=0,sl=0,adn=0;
  songs.forEach(function(id,n){
   items.push({id:id,d:good[id].d,t:good[id].t,p:cmap[id]||""});
-  if((n+1)%EVERY===0)items.push({j:STATIONS[jn++%STATIONS.length],d:JD});
+  if((n+1)%EVERY===0){
+   sl++;
+   if(goodAds.length&&sl%2===0){var ix=goodAds[adn++%goodAds.length];items.push({j:"ad",a:ix,d:adLen[ix]+2})}
+   else items.push({j:STATIONS[jn++%STATIONS.length],d:JD});
+  }
  });
  var total=0;items.forEach(function(it){total+=it.d});
  var res=await fetch(b+"/schedule.json",{method:"PUT",body:JSON.stringify({epoch:(prev&&prev.epoch)||Date.UTC(2026,10,14),total:total,items:items,upd:Date.now()})});
  if(res.ok){
   say("তালিকা তৈরি হয়েছে। "+bn(songs.length)+"টি গান, মোট প্রায় "+bn(Math.round(total/360)/10)+" ঘণ্টার চক্র। এখন রেডিওতে গিয়ে চালান।");
-  var rs=$("rs");rs.textContent="গান: "+songs.length+", স্টেশন ঘোষণা: "+(items.length-songs.length)+", বাদ পড়া: "+bad+" (সময় সীমার বাইরে "+nD+", ইউটিউব চালাতে দেয়নি "+nB+", লোড হয়নি "+nL+")";
+  var rs=$("rs");adRep.concat(azRep).forEach(function(x){var p0=document.createElement("p");p0.textContent=x;rs.appendChild(p0)});
+  var p1=document.createElement("p");rs.appendChild(p1);p1.textContent="গান: "+songs.length+", স্টেশন ঘোষণা: "+(items.length-songs.length)+", বাদ পড়া: "+bad+" (সময় সীমার বাইরে "+nD+", ইউটিউব চালাতে দেয়নি "+nB+", লোড হয়নি "+nL+")";
   if(fails.length){
    var h=document.createElement("h2");h.textContent="বাদ পড়া ভিডিও ও কারণ";rs.appendChild(h);
    fails.slice(0,150).forEach(function(f){
