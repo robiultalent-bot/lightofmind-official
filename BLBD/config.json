@@ -47,5 +47,7 @@
  "songs": [],
  "searchApi": "",
  "firebaseUrl": "https://sonicmind-72928-default-rtdb.firebaseio.com",
+ "adminSalt": "adf571c3f0ecd7632c40de674b9c08b2",
+ "adminHash": "44e6af1272af4fa8843fedb08d7f3138f459c8b6095ee619834a7a0ebf54d3ff",
  "creatorPinSha256": ""
 }
