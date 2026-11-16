@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>স্টুডিও ব্যবস্থাপনা</title>
+<style>
+:root{--bg:#080d1c;--card:#131c36;--gold:#f2b84b;--tx:#f3f0e6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Sans Bengali",system-ui,sans-serif;font-size:18px;line-height:1.7}
+.w{max-width:800px;margin:0 auto;padding:16px}
+h1{color:var(--gold);font-size:26px}
+h2{color:var(--gold);font-size:21px;margin:0 0 6px}
+.c{background:var(--card);border-radius:16px;padding:14px;margin:12px 0}
+.i{border-top:1px solid #2a3a6b;padding:8px 0}
+button,.bk{font:inherit;font-weight:700;background:var(--gold);color:#241a04;border:0;border-radius:10px;padding:10px 14px;margin:6px 6px 0 0;text-decoration:none;display:inline-block}
+button.r{background:#e5675b;color:#fff}
+input,textarea{width:100%;font:inherit;padding:10px;border-radius:10px;border:2px solid #2a3a6b;background:#080d1c;color:var(--tx);margin-top:6px}
+a{color:#ffd37a;overflow-wrap:anywhere}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.code{font-size:26px;font-weight:700;letter-spacing:2px;color:#9be37a}
+</style>
+</head>
+<body>
+<div class="w">
+<a class="bk" href="./">← রেডিওতে ফিরুন</a>
+<h1>স্টুডিও ব্যবস্থাপনা</h1>
+<div class="c" id="lk">
+ <label for="pw">এডমিন কোড</label>
+ <input id="pw" type="password" inputmode="numeric" autocomplete="off">
+ <button id="pwok" type="button">প্রবেশ</button>
+</div>
+<div id="app" hidden>
+ <div class="c" role="status" aria-live="polite" id="st">তৈরি।</div>
+ <div class="c"><h2>নতুন আবেদন</h2><div id="apps">লোড হচ্ছে...</div></div>
+ <div class="c"><h2>অনুমোদিত ক্রিয়েটর</h2><div id="crs">লোড হচ্ছে...</div></div>
+ <div class="c"><h2>সাম্প্রতিক কমেন্ট</h2><button id="cmr" type="button">নতুন করে লোড</button><div id="cms">লোড হচ্ছে...</div></div>
+ <div class="c"><h2>ঘোষণা</h2>
+  <label for="nt">ঘোষণার লেখা</label><textarea id="nt" maxlength="300"></textarea>
+  <label for="nm">কত মিনিট দেখাবে</label><input id="nm" type="number" value="60" min="1" max="1440">
+  <button id="nok" type="button">ঘোষণা দিন</button><button id="ndel" type="button" class="r">ঘোষণা মুছুন</button>
+ </div>
+ <div class="c"><h2>আমার এডমিন কোড বদলান</h2>
+  <p>নতুন কোড শুধু সংখ্যার দিন। যত লম্বা, তত নিরাপদ। অন্তত ৮ সংখ্যা রাখুন, সহজ সংখ্যা (১২৩৪, ১০৯০) দেবেন না।</p>
+  <label for="np1">নতুন কোড</label><input id="np1" type="password" inputmode="numeric" autocomplete="off">
+  <label for="np2">নতুন কোড আবার</label><input id="np2" type="password" inputmode="numeric" autocomplete="off">
+  <button id="npok" type="button">কোড বদলান</button>
+ </div>
+ <div class="c"><h2>লাইভের গান বন্ধ</h2><p>কোনো ক্রিয়েটরের চালানো গান এখনই থামাতে চাইলে চাপুন। রেডিওর নিজের তালিকার গানে এটা কিছু করে না।</p>
+  <button id="skip" type="button" class="r">গান বন্ধ করুন</button></div>
+</div>
+</div>
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i)};
+var C={};
+function st(t){$("st").textContent=t}
+function el(t,x){var e=document.createElement(t);if(x!=null)e.textContent=x;return e}
+function base(){var u=(C.firebaseUrl||"").replace(/\/+$/,"");return /^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/.test(u)?u+"/blbd":""}
+function hex(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return ("0"+x.toString(16)).slice(-2)}).join("")}
+function sha(t){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)).then(hex)}
+function pbk(pin,salt){
+ return crypto.subtle.importKey("raw",new TextEncoder().encode(String(pin)),"PBKDF2",false,["deriveBits"]).then(function(k){
+  return crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(String(salt)),iterations:100000,hash:"SHA-256"},k,256);
+ }).then(hex);
+}
+function get(p){return fetch(base()+p,{cache:"no-store"}).then(function(r){return r.json()}).catch(function(){return null})}
+function put(p,o){return fetch(base()+p,{method:"PUT",body:JSON.stringify(o)}).then(function(r){return r.ok})}
+function del(p){return fetch(base()+p,{method:"DELETE"}).then(function(r){return r.ok})}
+function safeUrl(u){return /^https:\/\//.test(u||"")?u:""}
+function link(t,u){var a=el("a",t);if(safeUrl(u)){a.href=u;a.target="_blank";a.rel="noopener noreferrer"}return a}
+function when(ts){try{return new Date(ts).toLocaleString("bn-BD",{timeZone:"Asia/Dhaka"})}catch(e){return ""}}
+function rand10(){var a=new Uint32Array(2);crypto.getRandomValues(a);return String((a[0]%100000)*100000+(a[1]%100000)).padStart(10,"0")}
+
+var tries=0,until=0;
+function admCred(){
+ return get("/admin.json").then(function(a){
+  if(a&&typeof a.s==="string"&&typeof a.h==="string"&&a.s&&a.h)return {s:a.s,h:a.h};
+  return {s:C.adminSalt,h:C.adminHash};
+ });
+}
+function enter(v){
+ return admCred().then(function(cr){
+  return pbk(v,cr.s).then(function(h){
+   if(h!==cr.h)return false;
+   $("lk").hidden=true;$("app").hidden=false;load();return true;
+  });
+ });
+}
+function lockMsg(){return tries>=5&&Date.now()<until}
+$("pwok").onclick=function(){
+ if(lockMsg()){alert("এক মিনিট পরে চেষ্টা করুন।");return}
+ enter($("pw").value.trim()).then(function(ok){
+  if(!ok){tries++;if(tries>=5)until=Date.now()+60000;$("pw").value="";alert("কোড ঠিক নয়।")}
+ });
+};
+function load(){apps();creators();comments()}
+
+function apps(){
+ get("/apps.json").then(function(d){
+  var box=$("apps");box.textContent="";d=d||{};var ks=Object.keys(d).sort().reverse();
+  if(!ks.length){box.textContent="কোনো নতুন আবেদন নেই।";return}
+  ks.forEach(function(k){
+   var a=d[k]||{},w=el("div");w.className="i";
+   w.appendChild(el("b",String(a.n||"")));
+   w.appendChild(el("div","চ্যানেল: "+String(a.cn||"")));
+   var l1=el("div");l1.appendChild(link("চ্যানেল দেখুন",a.cl));w.appendChild(l1);
+   w.appendChild(el("div","যোগাযোগ: "+String(a.ct||"")));
+   w.appendChild(el("div","বিষয়: "+String(a.tp||"")));
+   var l2=el("div");l2.appendChild(link("নমুনা শুনুন বা দেখুন",a.sm));w.appendChild(l2);
+   w.appendChild(el("div","সময়: "+when(a.ts)));
+   var ok=el("button","✅ অনুমোদন দিয়ে কোড বানান");ok.type="button";
+   ok.onclick=function(){
+    var code=rand10();
+    sha(code).then(function(h){
+     return put("/creators/"+h,{n:String(a.n||"").slice(0,40),ch:String(a.cn||"").slice(0,80),u:safeUrl(a.cl),ts:Date.now()});
+    }).then(function(good){
+     if(!good){st("কোড সংরক্ষণ করা যায়নি।");return}
+     del("/apps/"+k);
+     w.textContent="";var p=el("p","অনুমোদিত: "+String(a.n||"")+"। এই কোড এখনই কপি করে তাকে পাঠান। আর দেখা যাবে না:");
+     var c=el("div",code);c.className="code";w.appendChild(p);w.appendChild(c);
+     st("কোড তৈরি হয়েছে।");creators();
+    });
+   };
+   var no=el("button","❌ বাদ দিন");no.type="button";no.className="r";
+   no.onclick=function(){del("/apps/"+k).then(function(){st("আবেদন বাদ দেওয়া হয়েছে।");apps()})};
+   w.appendChild(ok);w.appendChild(no);box.appendChild(w);
+  });
+ });
+}
+function creators(){
+ get("/creators.json").then(function(d){
+  var box=$("crs");box.textContent="";d=d||{};var ks=Object.keys(d);
+  if(!ks.length){box.textContent="এখনো কেউ নেই।";return}
+  ks.forEach(function(k){
+   var c=d[k]||{},w=el("div");w.className="i";
+   w.appendChild(el("b",String(c.n||"")));w.appendChild(el("div","চ্যানেল: "+String(c.ch||"")));
+   var b=el("button","🚫 অনুমতি বাতিল");b.type="button";b.className="r";
+   b.onclick=function(){del("/creators/"+k).then(function(){st("বাতিল করা হয়েছে।");creators()})};
+   w.appendChild(b);box.appendChild(w);
+  });
+ });
+}
+function comments(){
+ Promise.all([get('/comments.json?orderBy="$key"&limitToLast=50'),get("/reports.json")]).then(function(r){
+  var d=r[0]||{},rp=r[1]||{},box=$("cms");box.textContent="";var ks=Object.keys(d).sort().reverse();
+  if(!ks.length){box.textContent="কোনো কমেন্ট নেই।";return}
+  ks.forEach(function(k){
+   var c=d[k]||{},w=el("div");w.className="i";
+   var n=Object.keys(rp[k]||{}).length;
+   w.appendChild(el("b",String(c.n||"নামহীন")+(n?" (রিপোর্ট "+n+"টি)":"")));
+   w.appendChild(el("div",String(c.t||"")));
+   var x=el("button","🗑️ মুছুন");x.type="button";x.className="r";
+   x.onclick=function(){del("/comments/"+k).then(function(){st("কমেন্ট মোছা হয়েছে।");comments()})};
+   var bl=el("button","⛔ এই ব্যক্তিকে ব্লক");bl.type="button";bl.className="r";
+   bl.onclick=function(){if(c.u)put("/blocked/"+encodeURIComponent(c.u),1).then(function(){st("ব্লক করা হয়েছে।");comments()})};
+   w.appendChild(x);w.appendChild(bl);box.appendChild(w);
+  });
+ });
+}
+$("cmr").onclick=comments;
+$("npok").onclick=function(){
+ var a=$("np1").value.trim(),b=$("np2").value.trim();
+ if(!/^\d{4,}$/.test(a)){st("কোড শুধু সংখ্যার হতে হবে।");return}
+ if(a!==b){st("দুই ঘরের কোড মিলছে না।");return}
+ if(a==="1090"||/^(\d)\1+$/.test(a)||"01234567890123456789".indexOf(a)>=0){st("এই কোড সহজ। অন্য কোড দিন।");return}
+ var salt=hex(crypto.getRandomValues(new Uint8Array(16)));
+ pbk(a,salt).then(function(h){return put("/admin",{s:salt,h:h})}).then(function(ok){
+  if(ok){$("np1").value="";$("np2").value="";st("কোড বদলানো হয়েছে। এখন থেকে নতুন কোড দিয়ে ঢুকবেন। কোড ভুলে গেলে ফায়ারবেসে admin নামের অংশটি মুছে দিলে আগের কোডে ফেরা যাবে।")}
+  else st("কোড বদলানো যায়নি।");
+ });
+};
+$("nok").onclick=function(){
+ var t=$("nt").value.trim(),m=+$("nm").value;
+ if(!t||!(m>0)){st("ঘোষণা লিখুন ও মিনিট দিন।");return}
+ put("/notice",{t:t.slice(0,300),until:Date.now()+m*60000}).then(function(ok){st(ok?"ঘোষণা দেওয়া হয়েছে।":"ঘোষণা দেওয়া যায়নি।")});
+};
+$("ndel").onclick=function(){del("/notice").then(function(){st("ঘোষণা মোছা হয়েছে।");$("nt").value=""})};
+$("skip").onclick=function(){put("/ctl",{skip:Date.now()}).then(function(ok){st(ok?"আদেশ পাঠানো হয়েছে। কয়েক সেকেন্ডে গান বন্ধ হবে।":"আদেশ পাঠানো যায়নি।")})};
+
+fetch("config.json",{cache:"no-cache"}).then(function(r){return r.json()}).then(function(d){
+ C=d;
+ if(!C.adminHash||!C.adminSalt||!base()){$("lk").textContent="এডমিন কোড এখনো বসানো হয়নি। config.json দেখুন।";return}
+ var v="";try{v=sessionStorage.getItem("blbd_adm")||""}catch(e){}
+ if(v){try{sessionStorage.removeItem("blbd_adm")}catch(e){}enter(v).then(function(ok){if(!ok)$("pw").focus()})}
+}).catch(function(){$("lk").textContent="সেটিংস ফাইল লোড হয়নি।"});
+})();
+</script>
+</body>
+</html>
