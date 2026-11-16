@@ -28,6 +28,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #fff;
 <div class="c">
  <label for="ex">আরও প্লেলিস্ট আইডি (ঐচ্ছিক, কমা দিয়ে আলাদা করুন)</label>
  <input id="ex" type="text" autocomplete="off">
+ <label><input id="fa" type="checkbox" style="width:auto"> সব ভিডিও আবার মাপুন (না চাপলে শুধু নতুন ও আগে ব্যর্থগুলো মাপা হবে)</label>
  <button id="go" type="button">▶ তালিকা তৈরি শুরু করুন</button>
 </div>
 <div class="c" role="status" aria-live="polite" id="st">তৈরি। শুরু বোতাম চাপুন।</div>
@@ -82,19 +83,27 @@ async function measure1(id){
  if(vid!==id||!(d>0))return {e:"load"};
  return {id:id,d:d,t:(t||"গান").slice(0,100)};
 }
-function driveUrl(u){
+function driveId(u){
  var m=String(u||"").match(/\/d\/([A-Za-z0-9_-]{10,})/)||String(u||"").match(/[?&]id=([A-Za-z0-9_-]{10,})/);
- return m?"https://drive.google.com/uc?export=download&id="+m[1]:"";
+ return m?m[1]:"";
 }
-function measureAd(ad){
+function driveForms(u){
+ var id=driveId(u);if(!id)return [];
+ return ["https://drive.usercontent.google.com/download?id="+id+"&export=download&confirm=t","https://drive.google.com/uc?export=download&id="+id];
+}
+function tryAudio(url){
  return new Promise(function(res){
-  var u=driveUrl(ad&&ad.u);if(!u){res(0);return}
   var a=new Audio();a.preload="metadata";
-  var t=setTimeout(function(){res(0)},12000);
-  a.onloadedmetadata=function(){clearTimeout(t);var d=a.duration;res(isFinite(d)&&d>1?Math.ceil(d):0)};
-  a.onerror=function(){clearTimeout(t);res(0)};
-  a.src=u;
+  var t=setTimeout(function(){res({len:0,err:"সময় শেষ"})},9000);
+  a.onloadedmetadata=function(){clearTimeout(t);var d=a.duration;res(isFinite(d)&&d>1?{len:Math.ceil(d)}:{len:0,err:"দৈর্ঘ্য অজানা"})};
+  a.onerror=function(){clearTimeout(t);res({len:0,err:"ফাইল খোলেনি (কোড "+(a.error?a.error.code:"?")+")"})};
+  a.src=url;
  });
+}
+async function measureAd(ad){
+ var forms=driveForms(ad&&ad.u),i,last="লিংকে ফাইলের আইডি পাওয়া যায়নি";
+ for(i=0;i<forms.length;i++){var r=await tryAudio(forms[i]);if(r.len)return {len:r.len,f:i};last=r.err}
+ return {len:0,f:0,err:last};
 }
 async function measure(id){
  var m=await measure1(id);
@@ -102,7 +111,7 @@ async function measure(id){
  return m;
 }
 async function runBuild(){
- $("go").disabled=true;
+ $("go").disabled=true;$("rs").textContent="";
  var b=fbBase();if(!b){say("ফায়ারবেসের ঠিকানা নেই। config.json দেখুন।");return}
  var pls=(C.radio||[]).map(function(x){return x.playlist}).filter(okPl);
  $("ex").value.split(",").forEach(function(x){x=x.trim();if(okPl(x)&&pls.indexOf(x)<0)pls.push(x)});
@@ -114,9 +123,13 @@ async function runBuild(){
  }
  if(!all.length){say("প্লেলিস্টে কোনো গান পাওয়া যায়নি। প্লেলিস্টটি সবার জন্য খোলা (পাবলিক) কিনা দেখুন।");$("go").disabled=false;return}
  say("মোট "+bn(all.length)+"টি ভিডিও পাওয়া গেছে। এখন প্রতিটির সময় মাপা হচ্ছে। এতে কয়েক মিনিট লাগবে। পাতা বন্ধ করবেন না।");
+ var prev0=null;try{prev0=await fetch(b+"/schedule.json",{cache:"no-store"}).then(function(r){return r.json()})}catch(e){}
+ var known={},skipped=0;
+ if(prev0&&prev0.items&&!$("fa").checked)prev0.items.forEach(function(it){if(it&&it.id&&it.d>=MIN&&it.d<=MAX)known[it.id]={id:it.id,d:it.d,t:it.t||"গান"}});
  var good={},bad=0,nB=0,nL=0,nD=0,fails=[];
  for(j=0;j<all.length;j++){
-  var m=await measure(all[j]);
+  var m=known[all[j]];
+  if(m)skipped++;else m=await measure(all[j]);
   if(m&&m.id){if(m.d>=MIN&&m.d<=MAX)good[all[j]]=m;else{bad++;nD++;fails.push({id:all[j],w:"সময় "+bn(Math.floor(m.d/60))+" মিনিট "+bn(m.d%60)+" সেকেন্ড, সীমার বাইরে ("+m.t+")"})}}
   else{bad++;if(m&&m.e==="blocked"){nB++;fails.push({id:all[j],w:"ইউটিউব বাইরের সাইটে চালাতে দেয়নি"})}else{nL++;fails.push({id:all[j],w:"লোড হয়নি (ধীর নেট বা ভিডিও নেই)"})}}
   if((j+1)%10===0||j===all.length-1)say(bn(j+1)+"/"+bn(all.length)+" মাপা হয়েছে। ঠিক আছে "+bn(Object.keys(good).length)+"টি, বাদ "+bn(bad)+"টি (সময় সীমার বাইরে "+bn(nD)+", ইউটিউব চালাতে দেয়নি "+bn(nB)+", লোড হয়নি "+bn(nL)+")।");
@@ -124,19 +137,24 @@ async function runBuild(){
  var good_ids=all.filter(function(x){return good[x]});
  if(good_ids.length<2){say("চালানোর মতো গান পাওয়া যায়নি। ভিডিওগুলো বাইরে চালানোর অনুমতি দেওয়া আছে কিনা দেখুন।");$("go").disabled=false;return}
  say("বিজ্ঞাপনের দৈর্ঘ্য মাপা হচ্ছে...");
- var adl=C.ads||[],adLen=[],goodAds=[],adRep=[],q;
- for(q=0;q<adl.length;q++){var L=await measureAd(adl[q]);adLen.push(L);if(L){goodAds.push(q);adRep.push((adl[q].t||("বিজ্ঞাপন "+(q+1)))+": "+L+" সেকেন্ড")}else adRep.push((adl[q].t||("বিজ্ঞাপন "+(q+1)))+": মাপা যায়নি (লিংক বা অনুমতি দেখুন)")}
+ var adl=C.ads||[],adLen=[],adF=[],goodAds=[],adRep=[],q;
+ for(q=0;q<adl.length;q++){
+  var R1=await measureAd(adl[q]),nm=(adl[q].t||("বিজ্ঞাপন "+(q+1)));
+  adLen.push(R1.len);adF.push(R1.f||0);
+  if(R1.len){goodAds.push(q);adRep.push(nm+": "+R1.len+" সেকেন্ড ✓")}
+  else adRep.push(nm+": মাপা যায়নি ✗ ("+(R1.err||"অজানা")+")। ফাইলের শেয়ার \"যে কেউ লিংক দিয়ে\" আছে কিনা এবং লিংকটি পুরো কপি হয়েছে কিনা দেখুন।");
+ }
  var azRep=[];
  try{
-  var ai=(C.azanIds||[]).filter(okId),fj="",df="";
-  for(q=0;q<ai.length;q++){
-   var mz=await measure1(ai[q]);
-   var tt=(mz&&mz.t)||"";var isF=/fajr|fajar|ফজর|فجر|subuh|sobh/i.test(tt);
-   azRep.push("আজান "+(q+1)+": "+(tt||"নাম পাওয়া যায়নি")+(isF?" → ফজর":" → সাধারণ"));
-   if(isF&&!fj)fj=ai[q];else if(!df)df=ai[q];
+  var an=C.azan||{},ids=[],lab={"default":"নামাজের আজান","fajr":"ফজরের আজান"};
+  Object.keys(lab).forEach(function(k){if(okId(an[k])&&ids.indexOf(an[k])<0)ids.push(an[k])});
+  Object.keys(lab).forEach(function(k){});
+  for(q=0;q<ids.length;q++){
+   var who=[];Object.keys(lab).forEach(function(k){if(an[k]===ids[q])who.push(lab[k])});
+   var mz=await measure(ids[q]);
+   if(mz&&mz.id)azRep.push(who.join(" ও ")+": "+mz.t+" ("+Math.floor(mz.d/60)+" মিনিট "+(mz.d%60)+" সেকেন্ড) ✓ চালানো যাবে");
+   else azRep.push(who.join(" ও ")+": ✗ "+(mz&&mz.e==="blocked"?"ইউটিউব বাইরের সাইটে চালাতে দেয়নি":"লোড হয়নি")+"। ভিডিওর লিংক বা এমবেড অনুমতি দেখুন।");
   }
-  if(!df&&fj)df=fj;
-  if(df){await fetch(b+"/azanmap.json",{method:"PUT",body:JSON.stringify({"default":df,fajr:fj||df})})}
  }catch(e){}
  var prev=null;try{prev=await fetch(b+"/schedule.json",{cache:"no-store"}).then(function(r){return r.json()})}catch(e){}
  var kept=[];
@@ -148,7 +166,7 @@ async function runBuild(){
   items.push({id:id,d:good[id].d,t:good[id].t,p:cmap[id]||""});
   if((n+1)%EVERY===0){
    sl++;
-   if(goodAds.length&&sl%2===0){var ix=goodAds[adn++%goodAds.length];items.push({j:"ad",a:ix,d:adLen[ix]+2})}
+   if(goodAds.length&&sl%2===0){var ix=goodAds[adn++%goodAds.length];items.push({j:"ad",a:ix,f:adF[ix],d:adLen[ix]+2})}
    else items.push({j:STATIONS[jn++%STATIONS.length],d:JD});
   }
  });
@@ -157,7 +175,7 @@ async function runBuild(){
  if(res.ok){
   say("তালিকা তৈরি হয়েছে। "+bn(songs.length)+"টি গান, মোট প্রায় "+bn(Math.round(total/360)/10)+" ঘণ্টার চক্র। এখন রেডিওতে গিয়ে চালান।");
   var rs=$("rs");adRep.concat(azRep).forEach(function(x){var p0=document.createElement("p");p0.textContent=x;rs.appendChild(p0)});
-  var p1=document.createElement("p");rs.appendChild(p1);p1.textContent="গান: "+songs.length+", স্টেশন ঘোষণা: "+(items.length-songs.length)+", বাদ পড়া: "+bad+" (সময় সীমার বাইরে "+nD+", ইউটিউব চালাতে দেয়নি "+nB+", লোড হয়নি "+nL+")";
+  var p1=document.createElement("p");rs.appendChild(p1);p1.textContent="আগে থেকে জানা ছিল (আবার মাপা হয়নি): "+skipped+"টি। গান: "+songs.length+", স্টেশন ঘোষণা: "+(items.length-songs.length)+", বাদ পড়া: "+bad+" (সময় সীমার বাইরে "+nD+", ইউটিউব চালাতে দেয়নি "+nB+", লোড হয়নি "+nL+")";
   if(fails.length){
    var h=document.createElement("h2");h.textContent="বাদ পড়া ভিডিও ও কারণ";rs.appendChild(h);
    fails.slice(0,150).forEach(function(f){
