@@ -43,7 +43,7 @@ function say(t){$("st").textContent=t}
 function okId(s){return /^[A-Za-z0-9_-]{11}$/.test(s||"")}
 function okPl(s){return /^[A-Za-z0-9_-]{10,60}$/.test(s||"")}
 var C={},player=null,ready=false,waitR=null;
-var MIN=30,MAX=900,EVERY=3,JD=10;
+var MIN=15,MAX=900,EVERY=3,JD=10;
 var STATIONS=["j1","j2","j3","j4"];
 function fbBase(){var u=(C.firebaseUrl||"").replace(/\/+$/,"");return /^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/.test(u)?u+"/blbd":""}
 window.onYouTubeIframeAPIReady=function(){
