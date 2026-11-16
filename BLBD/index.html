@@ -293,16 +293,21 @@ function speakJ(k,off){
  var u=new SpeechSynthesisUtterance(JT[k]||"আপনি শুনছেন বিএলবিডি।");u.lang="bn-BD";
  speechSynthesis.cancel();speechSynthesis.speak(u);
 }
-function driveUrl(u){
+function driveUrl(u,f){
  var m=String(u||"").match(/\/d\/([A-Za-z0-9_-]{10,})/)||String(u||"").match(/[?&]id=([A-Za-z0-9_-]{10,})/);
- return m?"https://drive.google.com/uc?export=download&id="+m[1]:"";
+ if(!m)return "";
+ return (f===1)?"https://drive.google.com/uc?export=download&id="+m[1]:"https://drive.usercontent.google.com/download?id="+m[1]+"&export=download&confirm=t";
 }
 function playAd(off,i){
  var it=S&&S.items[i],ad=(C.ads||[])[it&&it.a!=null?it.a:0];
  if(!ad||!driveUrl(ad.u)){speakJ("j1",off);return}
  stopJ();
- var a=new Audio(driveUrl(ad.u));jAudio=a;
- a.onerror=function(){if(jAudio===a&&radioOn&&mode==="radio"&&!cur)speakJ("j1",off)};
+ var f0=(it&&it.f===1)?1:0,a=new Audio(driveUrl(ad.u,f0));jAudio=a;
+ a.onerror=function(){
+  if(jAudio!==a||!(radioOn&&mode==="radio"&&!cur))return;
+  if(!a._r){a._r=1;a.src=driveUrl(ad.u,1-f0);var p2=a.play();if(p2&&p2.catch)p2.catch(function(){});return}
+  speakJ("j1",off);
+ };
  a.onloadedmetadata=function(){try{if(off<a.duration-0.5)a.currentTime=off;else a.pause()}catch(e){}};
  AD=true;$("np").textContent="📢 বিজ্ঞাপন";
  var p=a.play();if(p&&p.catch)p.catch(function(){});
