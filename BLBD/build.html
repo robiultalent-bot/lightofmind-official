@@ -101,7 +101,7 @@ async function measure(id){
  if(m&&m.e==="load"){await sleep(800);m=await measure1(id)}
  return m;
 }
-$("go").onclick=async function(){
+async function runBuild(){
  $("go").disabled=true;
  var b=fbBase();if(!b){say("ফায়ারবেসের ঠিকানা নেই। config.json দেখুন।");return}
  var pls=(C.radio||[]).map(function(x){return x.playlist}).filter(okPl);
@@ -169,6 +169,9 @@ $("go").onclick=async function(){
   }
  }else say("ফায়ারবেসে লেখা যায়নি। ডাটাবেসের নিয়ম দেখুন।");
  $("go").disabled=false;
+}
+$("go").onclick=function(){
+ runBuild().catch(function(e){say("ত্রুটি হয়েছে: "+(e&&e.message?e.message:"অজানা")+"। পাতাটি আবার খুলে চেষ্টা করুন।")}).then(function(){$("go").disabled=false});
 };
 })();
 </script>
