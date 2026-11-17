@@ -582,7 +582,8 @@ window.onYouTubeIframeAPIReady=function(){
     R.fix=0;setTimeout(function(){try{player.unMute()}catch(x){}},400);
    }
    if(e.data===1&&mode==="radio"&&!cur&&R.got&&!S)radioDur();
-   if(e.data===0&&mode==="break"&&cur)say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");
+   if(e.data===1&&cur&&LV.on)beatPause();
+   if(e.data===0&&mode==="break"&&cur){say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");beatResume()}
    if(e.data===0&&mode==="radio"){if(cur){cur=null;radio()}else if(S&&radioOn){R.endedId=CURV;setTimeout(function(){R.endedId=""},4000);radioSched()}else if(R.got)radioNext()}
   },
   onError:function(){if(mode==="radio"&&!cur&&S&&radioOn){playItem(R.sIdx+1,0);return}if(mode==="radio"&&!cur&&!S&&!R.got){try{player.nextVideo()}catch(x){}return}if(mode==="radio"&&!cur&&R.got){radioNext();return}say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
@@ -800,7 +801,7 @@ function parseYT(q){
 }
 function render(items){
  var box=$("res");box.textContent="";
- if(!items.length){box.appendChild(el("p","কিছু পাওয়া যায়নি। অন্য নামে চেষ্টা করুন।"));say("কোনো ফল নেই।");return}
+ if(!items.length){box.appendChild(el("p","এই নামে স্টুডিওর তালিকায় পাওয়া যায়নি। নামের একটি শব্দ লিখে খুঁজুন, বা তালিকা বোতাম চাপুন, বা ইউটিউব লিংক দিন।"));say("কোনো ফল নেই।");return}
  say(items.length+"টি ফল পাওয়া গেছে।");
  items.forEach(function(it){
   var b=el("button");b.type="button";
@@ -828,14 +829,22 @@ $("sl").onclick=function(){
   if(more)say("প্রথম ৬০টি গান দেখানো হলো। নাম লিখে খুঁজলে বাকিগুলো আসবে।");
  });
 };
+function wordsOk(text,ws){var t=String(text||"").toLowerCase();for(var i=0;i<ws.length;i++)if(t.indexOf(ws[i])<0)return false;return true}
 function search(){
  var q=$("q").value.trim();if(!q)return;
  var id=parseYT(q);
  if(id){render([{id:id,title:"ইউটিউব ভিডিও ("+id+")",channel:""}]);return}
- var low=q.toLowerCase();
- var items=(C.songs||[]).filter(function(x){return okId(x.id)&&((x.title||"").toLowerCase().indexOf(low)>=0||(x.channel||"").toLowerCase().indexOf(low)>=0)});
- var have={};items.forEach(function(x){have[x.id]=1});
- studioItems(q).forEach(function(x){if(!have[x.id]){have[x.id]=1;items.push(x)}});
+ say("খোঁজা হচ্ছে...");
+ ensureSched().then(function(){return new Promise(function(r){fetch(fbBase()+"/lib.json",{cache:"no-store"}).then(function(x){return x.json()}).then(r).catch(function(){r(null)})})}).then(function(lib){search2(q,lib)}).catch(function(){search2(q,null)});
+}
+function search2(q,lib){
+ var ws=q.toLowerCase().split(/[\s,।\-_|]+/).filter(function(w){return w});
+ var all=[];
+ (C.songs||[]).forEach(function(x){if(okId(x.id))all.push({id:x.id,title:x.title||"",channel:x.channel||"",channelUrl:x.channelUrl||""})});
+ if(lib&&typeof lib==="object")Object.keys(lib).forEach(function(k){var x=lib[k];if(okId(k)&&x&&x.title)all.push({id:k,title:String(x.title),channel:String(x.channel||""),channelUrl:x.channelUrl||""})});
+ studioItems("").forEach(function(x){all.push(x)});
+ var have={},items=[];
+ all.forEach(function(x){if(have[x.id])return;if(wordsOk(x.title+" "+x.channel,ws)){have[x.id]=1;items.push(x)}});
  if(/^https:\/\//.test(C.searchApi||"")){
   say("খোঁজা হচ্ছে...");
   fetch(C.searchApi+(C.searchApi.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(d){
@@ -846,7 +855,7 @@ function search(){
 $("sb").onclick=search;
 $("q").addEventListener("keydown",function(e){if(e.key==="Enter")search()});
 function play(it){
- CURV="";
+ CURV="";beatPause();
  cur={id:it.id,title:it.title,channel:it.channel||"",channelUrl:it.channelUrl||"",ts:Date.now()};
  try{player.loadVideoById(it.id);player.setVolume(+$("vol").value)}catch(e){}
  $("np").textContent="চলছে: "+it.title+(it.channel?" - "+it.channel:"");
@@ -1023,7 +1032,7 @@ setInterval(function(){
  });
 },450);
 /* বিট: লাইভে বাজানোর জন্য নিজে বানানো ছন্দ */
-var BT={mode:0,tm:null,step:0,next:0,noise:null,out:null};
+var BT={arm:0,mode:0,tm:null,step:0,next:0,noise:null,out:null};
 var BP=[
  {n:"ডিস্কো",bpm:118,k:[0,4,8,12],s:[4,12],h:[2,6,10,14]},
  {n:"হিপহপ",bpm:90,k:[0,7,10],s:[4,12],h:[0,2,4,6,8,10,12,14]},
@@ -1053,7 +1062,9 @@ function beatTick(){
   BT.next+=dur;BT.step++;
  }
 }
-function beatStop(){clearInterval(BT.tm);BT.mode=0;BT.out=null;$("bt").textContent="🥁 বিট: বন্ধ"}
+function beatPause(){if(BT.mode&&BT.tm){clearInterval(BT.tm);BT.tm=null}}
+function beatResume(){if(!BT.mode||BT.tm||!LV.ctx||!BT.out)return;BT.step=0;BT.next=LV.ctx.currentTime+0.2;BT.tm=setInterval(beatTick,40);say("বিট আবার চালু হলো।")}
+function beatStop(){clearInterval(BT.tm);BT.tm=null;BT.mode=0;BT.out=null;$("bt").textContent="🥁 বিট: বন্ধ"}
 $("bt").onclick=function(){
  if(!LV.ctx||!LV.dest)return;
  BT.mode=(BT.mode+1)%(BP.length+1);
@@ -1062,8 +1073,8 @@ $("bt").onclick=function(){
  var c=LV.ctx;
  if(!BT.noise){var n=c.sampleRate,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0),i;for(i=0;i<n;i++)d[i]=Math.random()*2-1;BT.noise=b}
  if(!BT.out){BT.out=c.createGain();BT.out.gain.value=0.5;toMix(BT.out);BT.out.connect(c.destination)}
- BT.step=0;BT.next=c.currentTime+0.1;BT.tm=setInterval(beatTick,40);
- $("bt").textContent="🥁 বিট: "+BP[BT.mode-1].n+" (চাপলে পরেরটি, শেষে বন্ধ)";
+ BT.step=0;BT.next=c.currentTime+0.1;BT.tm=setInterval(beatTick,40);if(cur&&mode==="break"){beatPause()}
+ $("bt").textContent="🥁 বিট: "+BP[BT.mode-1].n+" (গান বাজলে নিজে থেমে যায়, গান শেষে নিজে চালু হয়)";
  say("বিট চালু: "+BP[BT.mode-1].n+"।");
 };
 
@@ -1344,7 +1355,7 @@ setInterval(presTick,20000);setTimeout(presTick,2500);
 
 /* শুরু */
 fetch("config.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){
- return fetch("extra.json",{cache:"no-cache"}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}}).then(function(x){["azan","ads","adSec","ice"].forEach(function(k){if(x&&x[k]!=null)d[k]=x[k]});return d})
+ return fetch("extra.json",{cache:"no-cache"}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}}).then(function(x){["azan","ads","adSec","ice","searchApi"].forEach(function(k){if(x&&x[k]!=null)d[k]=x[k]});return d})
 }).then(function(d){
  C=d;$("wl").textContent="";
  $("sp").hidden=true;
