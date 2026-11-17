@@ -605,6 +605,17 @@ $("pp").onclick=function(){
   else{player.playVideo();$("pp").textContent="⏸ থামান"}
  }catch(e){}
 };
+/* পাহারাদার: গান চলছে কিন্তু প্লেয়ার নিঃশব্দ থাকলে নিজে থেকে শব্দ চালু করে */
+setInterval(function(){
+ try{
+  if(!ready||!started||R.fix)return;
+  if(player.getPlayerState()===1){
+   var v=+$("vol").value;
+   if(player.isMuted()){player.unMute()}
+   if(v>0&&player.getVolume()<Math.min(v,10))player.setVolume(v);
+  }
+ }catch(e){}
+},1200);
 $("vol").oninput=function(){try{if(ready)player.setVolume(+$("vol").value)}catch(e){}};
 
 /* ক্রিয়েটর পিন (ঐচ্ছিক) */
