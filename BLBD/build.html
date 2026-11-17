@@ -66,12 +66,12 @@ async function getIds(pl){
 }
 async function measure1(id){
  player.cueVideoById(id);
- var r=await waitEvent(9000);
+ var r=await waitEvent(15000);
  if(r==="err")return {e:"blocked"};
  if(r!=="ok")return {e:"load"};
  /* আগের ভিডিওর পুরনো নাম ও সময় যেন না ধরা পড়ে, তাই আইডি মিলে যাওয়া পর্যন্ত অপেক্ষা */
  var d=0,t="",k,vid="",last=-1,same=0;
- for(k=0;k<30;k++){
+ for(k=0;k<45;k++){
   try{var vd=player.getVideoData()||{};vid=String(vd.video_id||"");t=String(vd.title||"");d=Math.round(player.getDuration())}catch(e){}
   if(vid===id&&d>0){
    if(d===last){same++}else{same=0;last=d}
@@ -107,7 +107,7 @@ async function measureAd(ad){
 }
 async function measure(id){
  var m=await measure1(id);
- if(m&&m.e==="load"){await sleep(800);m=await measure1(id)}
+ var tr=0;while(m&&m.e==="load"&&tr<2){tr++;await sleep(1200);m=await measure1(id)}
  return m;
 }
 async function runBuild(){
