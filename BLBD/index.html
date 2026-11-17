@@ -837,6 +837,7 @@ function search(){
  say("খোঁজা হচ্ছে...");
  ensureSched().then(function(){return new Promise(function(r){fetch(fbBase()+"/lib.json",{cache:"no-store"}).then(function(x){return x.json()}).then(r).catch(function(){r(null)})})}).then(function(lib){search2(q,lib)}).catch(function(){search2(q,null)});
 }
+function dg(t){setTimeout(function(){say(t);var r=$("res");if(r)r.appendChild(el("p",t))},80)}
 function search2(q,lib){
  var ws=q.toLowerCase().split(/[\s,।\-_|]+/).filter(function(w){return w});
  var all=[];
@@ -845,12 +846,12 @@ function search2(q,lib){
  studioItems("").forEach(function(x){all.push(x)});
  var have={},items=[];
  all.forEach(function(x){if(have[x.id])return;if(wordsOk(x.title+" "+x.channel,ws)){have[x.id]=1;items.push(x)}});
- if(/^https:\/\//.test(C.searchApi||"")){
-  say("খোঁজা হচ্ছে...");
-  fetch(C.searchApi+(C.searchApi.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(q)).then(function(r){return r.json()}).then(function(d){
-   var more=(d.items||[]).filter(function(x){return okId(x.id)});render(items.concat(more));
-  }).catch(function(){render(items)});
- }else render(items);
+ if(!/^https:\/\//.test(C.searchApi||"")){dg("ইউটিউব সার্চের লিংক extra.json এ পাওয়া যায়নি। শুধু স্টুডিওর তালিকা থেকে খোঁজা হলো।");render(items);return}
+ fetch(C.searchApi+(C.searchApi.indexOf("?")<0?"?":"&")+"q="+encodeURIComponent(q)).then(function(r){return r.text()}).then(function(tx){
+  var d;try{d=JSON.parse(tx)}catch(e){dg("সার্চ সার্ভার থেকে ভুল উত্তর এসেছে। ডিপ্লয়মেন্টে Anyone অনুমতি ও নতুন ভার্সন দেখুন।");render(items);return}
+  if(d.error)dg("ইউটিউব সার্চে সমস্যা: "+String(d.error).slice(0,100));
+  var more=(d.items||[]).filter(function(x){return okId(x.id)&&!have[x.id]});render(items.concat(more));
+ }).catch(function(){dg("সার্চ সার্ভারে পৌঁছানো যায়নি। অ্যাপস স্ক্রিপ্টের লিংক বা ডিপ্লয়মেন্ট দেখুন।");render(items)});
 }
 $("sb").onclick=search;
 $("q").addEventListener("keydown",function(e){if(e.key==="Enter")search()});
