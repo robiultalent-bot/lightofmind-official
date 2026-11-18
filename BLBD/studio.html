@@ -45,7 +45,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
   <label for="nm">কত মিনিট দেখাবে</label><input id="nm" type="number" value="60" min="1" max="1440">
   <button id="nok" type="button">ঘোষণা দিন</button><button id="ndel" type="button" class="r">ঘোষণা মুছুন</button>
  </div>
- <div class="c"><h2>আমার এডমিন কোড বদলান</h2>
+ <div class="c" id="cad"><h2>অ্যাডমিনের তালিকা</h2><p>প্রত্যেক অ্যাডমিনের আলাদা কোড। নাম লিখে কোড বানান, কোড শুধু একবার দেখা যায়।</p><label for="an1">নতুন অ্যাডমিনের নাম</label><input id="an1" type="text" maxlength="40" autocomplete="off"><button id="anok" type="button">কোড বানান</button><div id="ans">লোড হচ্ছে...</div></div>
+ <div class="c" id="cmy"><h2>আমার এডমিন কোড বদলান</h2>
   <p>নতুন কোড শুধু সংখ্যার দিন। যত লম্বা, তত নিরাপদ। অন্তত ৮ সংখ্যা রাখুন, সহজ সংখ্যা (১২৩৪, ১০৯০) দেবেন না।</p>
   <label for="np1">নতুন কোড</label><input id="np1" type="password" inputmode="numeric" autocomplete="off">
   <label for="np2">নতুন কোড আবার</label><input id="np2" type="password" inputmode="numeric" autocomplete="off">
@@ -86,11 +87,16 @@ function admCred(){
   return {s:C.adminSalt,h:C.adminHash};
  });
 }
+var MASTER=false;
+function showApp(m){MASTER=m;$("lk").hidden=true;$("app").hidden=false;$("cad").hidden=!m;$("cmy").hidden=!m;load();return true}
 function enter(v){
  return admCred().then(function(cr){
   return pbk(v,cr.s).then(function(h){
-   if(h!==cr.h)return false;
-   $("lk").hidden=true;$("app").hidden=false;load();return true;
+   if(h===cr.h)return showApp(true);
+   return sha(v).then(function(k){return get("/admins/"+k+".json")}).then(function(x){
+    if(x&&x.n)return showApp(false);
+    return false;
+   });
   });
  });
 }
@@ -101,7 +107,32 @@ $("pwok").onclick=function(){
   if(!ok){tries++;if(tries>=5)until=Date.now()+60000;$("pw").value="";alert("কোড ঠিক নয়।")}
  });
 };
-function load(){apps();creators();comments();libs()}
+function load(){apps();creators();comments();libs();if(MASTER)admins()}
+function admins(){
+ get("/admins.json").then(function(d){
+  var box=$("ans");box.textContent="";d=d||{};var ks=Object.keys(d);
+  if(!ks.length){box.textContent="এখনো কোনো অতিরিক্ত অ্যাডমিন নেই।";return}
+  ks.forEach(function(k){
+   var x=d[k]||{},w=el("div");w.className="i";
+   w.appendChild(el("b",String(x.n||"")));w.appendChild(el("div","যোগ হয়েছে: "+when(x.ts)));
+   var b=el("button","🚫 অনুমতি বাতিল");b.type="button";b.className="r";
+   b.onclick=function(){del("/admins/"+k).then(function(){st("অ্যাডমিন বাতিল করা হয়েছে।");admins()})};
+   w.appendChild(b);box.appendChild(w);
+  });
+ });
+}
+$("anok").onclick=function(){
+ var n=$("an1").value.trim().slice(0,40);if(!n){st("নাম লিখুন।");return}
+ var code=rand10();
+ sha(code).then(function(h){return put("/admins/"+h,{n:n,ts:Date.now()})}).then(function(ok){
+  if(!ok){st("সংরক্ষণ করা যায়নি।");return}
+  $("an1").value="";
+  var box=$("ans");var p=el("p",n+" এর কোড। এখনই কপি করে তাকে পাঠান। এটা আর দেখা যাবে না:");var c=el("div",code);c.className="code";
+  box.insertBefore(c,box.firstChild);box.insertBefore(p,box.firstChild);
+  st("অ্যাডমিন যোগ হয়েছে।");
+  setTimeout(function(){get("/admins.json").then(function(){},function(){})},0);
+ });
+};
 
 function apps(){
  get("/apps.json").then(function(d){
