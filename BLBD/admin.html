@@ -69,6 +69,21 @@ function verify(v){
  });
 }
 function say(t){$("m").textContent=t}
+/* ফায়ারবেসের ফ্রি সীমা শেষ হলে অ্যাডমিনকে সঙ্গে সঙ্গে জানানো */
+function fbWarn(t){
+ var b=document.getElementById("fbw");
+ if(!b){b=document.createElement("div");b.id="fbw";b.setAttribute("role","alert");b.style.cssText="background:#7a1d1d;color:#fff;padding:14px;margin:0 0 14px;border-radius:12px;line-height:1.7";document.body.insertBefore(b,document.body.firstChild)}
+ b.textContent="⚠️ ফায়ারবেস ডেটাবেসের ফ্রি সীমা শেষ হয়ে গেছে বা বন্ধ হয়ে গেছে। এখন লাইভ, অনুমোদন, কমেন্ট ও সময়সূচি কাজ নাও করতে পারে। করণীয়: ১) console.firebase.google.com এ গিয়ে Realtime Database → Usage দেখুন। ২) ফ্রি সীমা প্রতি মাসের শুরুতে নতুন হয়। ৩) এখনই চালু করতে Blaze (পে-অ্যাজ-ইউ-গো) প্ল্যানে যেতে হয়, তাতে কার্ড লাগে। গেলে আগে Budget alert দিয়ে খরচের সীমা বেঁধে নিন। সার্ভারের উত্তর: "+String(t||"").slice(0,80);
+}
+function fbHealth(){
+ var b=base();if(!b)return;
+ fetch(b+"/ping.json?shallow=true",{cache:"no-store"}).then(function(r){
+  if(r.ok){var w=document.getElementById("fbw");if(w)w.remove();return}
+  return r.text().then(function(t){if(r.status===402||r.status===429||/quota|payment|exceed|disabled|billing/i.test(t))fbWarn(r.status+" "+t)});
+ }).catch(function(){});
+}
+setInterval(fbHealth,300000);
+
 var DP=null;
 window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();DP=e});
 window.addEventListener("appinstalled",function(){DP=null;$("ib").hidden=true});
@@ -82,7 +97,7 @@ $("ok").onclick=function(){
  if(tries>=5&&Date.now()<until){say("অনেকবার ভুল হয়েছে। এক মিনিট পরে চেষ্টা করুন।");return}
  verify(v).then(function(ok){
   if(!ok){tries++;if(tries>=5)until=Date.now()+60000;$("pw").value="";say("পাসওয়ার্ড ঠিক নয়।");return}
-  CODE=v;$("pw").value="";$("lk").hidden=true;$("mn").hidden=false;$("b1").focus();
+  CODE=v;$("pw").value="";$("lk").hidden=true;$("mn").hidden=false;$("b1").focus();fbHealth();
  }).catch(function(){say("এখন যাচাই করা যাচ্ছে না। নেট দেখে আবার চেষ্টা করুন।")});
 };
 $("pw").addEventListener("keydown",function(e){if(e.key==="Enter")$("ok").click()});
