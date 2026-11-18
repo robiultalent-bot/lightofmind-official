@@ -66,6 +66,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
  <a id="lk" class="bk" href="#" target="_blank" rel="noopener noreferrer" hidden>▶ ইউটিউবে সম্পূর্ণ শুনুন, লাইক ও কমেন্ট করুন</a>
  <p class="sup" id="sup" hidden>🙏 এই রেডিওর সব গান শিল্পীদের নিজস্ব ইউটিউব চ্যানেল থেকে চলে। শিল্পীর পাশে থাকতে ইউটিউবে গানটি পুরোটা শুনুন, লাইক দিন ও চ্যানেল সাবস্ক্রাইব করুন।</p>
  <button id="pp" type="button">▶ রেডিও চালান</button>
+ <button id="kick" type="button" hidden>▶ গান শুরু না হলে এখানে চাপুন</button>
  <label for="vol">ভলিউম</label>
  <input id="vol" type="range" min="0" max="100" value="80">
 </div>
@@ -606,6 +607,28 @@ $("pp").onclick=function(){
   else{player.playVideo();$("pp").textContent="⏸ থামান"}
  }catch(e){}
 };
+/* শুরু-না-হওয়া পাহারাদার: রেডিও চালু কিন্তু ইউটিউবের গান ৮ সেকেন্ডেও না চললে নিজে আবার চেষ্টা করে, না হলে বড় বোতাম দেখায় */
+var KK={n:0,auto:0};
+function kickGo(){
+ KK.n=0;$("kick").hidden=true;
+ try{player.mute()}catch(e){}
+ R.endedId="";CURV="";
+ try{radioSched()}catch(e){}
+ setTimeout(function(){try{player.playVideo()}catch(e){}},400);
+}
+$("kick").onclick=function(){kickGo();say("গান শুরু করার চেষ্টা হচ্ছে।")};
+setInterval(function(){
+ try{
+  if(!ready||!started||!radioOn||mode!=="radio"||cur||!S){KK.n=0;KK.auto=0;$("kick").hidden=true;return}
+  var st=player.getPlayerState();
+  var busy=[].slice.call(document.querySelectorAll("audio")).some(function(a){return !a.paused&&!a.ended});
+  try{if(window.speechSynthesis&&speechSynthesis.speaking)busy=true}catch(e){}
+  if(st===1||busy){KK.n=0;KK.auto=0;$("kick").hidden=true;return}
+  KK.n++;
+  if(KK.n===4&&!KK.auto){KK.auto=1;try{player.mute()}catch(e){}R.endedId="";CURV="";radioSched()}
+  if(KK.n>=6&&$("kick").hidden){$("kick").hidden=false;say("গান এখনো শুরু হয়নি। নিচের বড় বোতাম চাপুন।")}
+ }catch(e){}
+},2000);
 /* পাহারাদার: গান চলছে কিন্তু প্লেয়ার নিঃশব্দ থাকলে নিজে থেকে শব্দ চালু করে */
 setInterval(function(){
  try{
@@ -752,17 +775,18 @@ function endLive(){
 
 /* গানের লাইব্রেরি: কনফিগের গান + ক্রিয়েটরদের চালানো গান */
 var LIB=[];
+var LB={};
 function addLib(it){
- var b=fbBase();if(!b||!okId(it.id))return;
+ var b=fbBase();if(!b||!okId(it.id)||LB[it.id])return;
  try{fetch(b+"/lib/"+it.id+".json",{method:"PUT",body:JSON.stringify({title:String(it.title||"").slice(0,120),channel:String(it.channel||"").slice(0,80),channelUrl:/^https:\/\/(www\.)?youtube\.com\//.test(it.channelUrl||"")?it.channelUrl:"",ts:Date.now()})})}catch(e){}
 }
 function loadLib(){
  var base=(C.songs||[]).filter(function(x){return okId(x.id)});
  var b=fbBase();
  if(!b){LIB=base;drawLib();return}
- fetch(b+"/lib.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(d){
+ fetch(b+"/libban.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(x){LB=x||{}}).catch(function(){}).then(function(){return fetch(b+"/lib.json",{cache:"no-store"})}).then(function(r){return r.json()}).then(function(d){
   var more=[];
-  if(d&&typeof d==="object")Object.keys(d).forEach(function(k){var x=d[k];if(okId(k)&&x&&x.title)more.push({id:k,title:String(x.title).slice(0,120),channel:String(x.channel||"").slice(0,80),channelUrl:x.channelUrl||"",ts:+x.ts||0})});
+  if(d&&typeof d==="object")Object.keys(d).forEach(function(k){var x=d[k];if(okId(k)&&x&&x.title&&!LB[k])more.push({id:k,title:String(x.title).slice(0,120),channel:String(x.channel||"").slice(0,80),channelUrl:x.channelUrl||"",ts:+x.ts||0})});
   more.sort(function(a,b){return b.ts-a.ts});
   var seen={};LIB=base.concat(more).filter(function(x){if(seen[x.id])return false;seen[x.id]=1;return true}).slice(0,60);
   drawLib();
@@ -842,7 +866,7 @@ function search2(q,lib){
  var ws=q.toLowerCase().split(/[\s,।\-_|]+/).filter(function(w){return w});
  var all=[];
  (C.songs||[]).forEach(function(x){if(okId(x.id))all.push({id:x.id,title:x.title||"",channel:x.channel||"",channelUrl:x.channelUrl||""})});
- if(lib&&typeof lib==="object")Object.keys(lib).forEach(function(k){var x=lib[k];if(okId(k)&&x&&x.title)all.push({id:k,title:String(x.title),channel:String(x.channel||""),channelUrl:x.channelUrl||""})});
+ if(lib&&typeof lib==="object")Object.keys(lib).forEach(function(k){var x=lib[k];if(okId(k)&&x&&x.title&&!LB[k])all.push({id:k,title:String(x.title),channel:String(x.channel||""),channelUrl:x.channelUrl||""})});
  studioItems("").forEach(function(x){all.push(x)});
  var have={},items=[];
  all.forEach(function(x){if(have[x.id])return;if(wordsOk(x.title+" "+x.channel,ws)){have[x.id]=1;items.push(x)}});
@@ -928,7 +952,7 @@ function pcmCapture(ctx,node,gain,onChunk){
   var inp=e.inputBuffer.getChannelData(0),i;
   for(i=0;i<inp.length;i++){
    acc+=inp[i];cnt++;ph+=1;
-   if(ph>=ratio){ph-=ratio;out.push(acc/cnt*gain);acc=0;cnt=0;if(out.length>=4000){var a=out;out=[];onChunk(a)}}
+   if(ph>=ratio){ph-=ratio;out.push(acc/cnt*gain);acc=0;cnt=0;if(out.length>=2400){var a=out;out=[];onChunk(a)}}
   }
  };
  var z=ctx.createGain();z.gain.value=0;node.connect(sp);sp.connect(z);z.connect(ctx.destination);
@@ -944,7 +968,7 @@ function pcmPlay(ctx,b64,outs,st){
  for(i=0;i<u.length;i++)f[i]=unulaw(u[i]);
  var buf=ctx.createBuffer(1,f.length,8000);buf.copyToChannel(f,0);
  var s=ctx.createBufferSource();s.buffer=buf;outs.forEach(function(o){s.connect(o)});
- var t=Math.max(st.next||0,ctx.currentTime+0.5);s.start(t);st.next=t+buf.duration;
+ var t=Math.max(st.next||0,ctx.currentTime+0.35);s.start(t);st.next=t+buf.duration;
 }
 function pcmOutStart(){
  if(LV.pco||!LV.ctx||!LV.tap)return;
@@ -972,7 +996,7 @@ function pcmInStart(){
    for(k=from;k<=s.n;k++)(function(k){ps.push(jget("pcm/c"+(k%6)).then(function(o){return o&&o.n===k?o:null}))})(k);
    Promise.all(ps).then(function(os){os.forEach(function(o){if(o)pcmPlay(c,o.d,[an],st)});st.last=s.n;st.busy=false});
   });
- },400);
+ },300);
  say("কণ্ঠ ইন্টারনেট-রিলের মাধ্যমে আসছে। কয়েক সেকেন্ড দেরি হতে পারে।");
 }
 function pcmInStop(){
@@ -1109,7 +1133,7 @@ function startVoice(){
   src.connect(f);f.connect(g);toMix(g);src.start();LV.amb=src;
   LV.on=true;pcmOutStart();tune("in");$("tn").hidden=false;$("bt").hidden=false;
   say("মাইক চালু। শ্রোতারা আপনার কণ্ঠ শুনবে। ইয়ারফোন লাগিয়ে রাখুন।");
-  LV.rt=setInterval(creatorPoll,2000);
+  LV.rt=setInterval(creatorPoll,1000);
  }).catch(function(){say("মাইকের অনুমতি পাওয়া যায়নি। শুধু গান চলবে।")});
 }
 function micSet(on){
