@@ -66,7 +66,6 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #fff;
  <a id="lk" class="bk" href="#" target="_blank" rel="noopener noreferrer" hidden>▶ ইউটিউবে সম্পূর্ণ শুনুন, লাইক ও কমেন্ট করুন</a>
  <p class="sup" id="sup" hidden>🙏 এই রেডিওর সব গান শিল্পীদের নিজস্ব ইউটিউব চ্যানেল থেকে চলে। শিল্পীর পাশে থাকতে ইউটিউবে গানটি পুরোটা শুনুন, লাইক দিন ও চ্যানেল সাবস্ক্রাইব করুন।</p>
  <button id="pp" type="button">▶ রেডিও চালান</button>
- <button id="kick" type="button" hidden>▶ গান শুরু না হলে এখানে চাপুন</button>
  <label for="vol">ভলিউম</label>
  <input id="vol" type="range" min="0" max="100" value="80">
 </div>
@@ -587,7 +586,7 @@ window.onYouTubeIframeAPIReady=function(){
    if(e.data===0&&mode==="break"&&cur){say("গান শেষ। নতুন গান বাছুন বা লাইভে ফিরুন।");beatResume()}
    if(e.data===0&&mode==="radio"){if(cur){cur=null;radio()}else if(S&&radioOn){R.endedId=CURV;setTimeout(function(){R.endedId=""},4000);radioSched()}else if(R.got)radioNext()}
   },
-  onError:function(){if(mode==="radio"&&!cur&&S&&radioOn){playItem(R.sIdx+1,0);return}if(mode==="radio"&&!cur&&!S&&!R.got){try{player.nextVideo()}catch(x){}return}if(mode==="radio"&&!cur&&R.got){radioNext();return}say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
+  onError:function(ev){R.err=ev&&ev.data;if(mode==="radio"&&!cur&&S&&radioOn){playItem(R.sIdx+1,0);return}if(mode==="radio"&&!cur&&!S&&!R.got){try{player.nextVideo()}catch(x){}return}if(mode==="radio"&&!cur&&R.got){radioNext();return}say("এই অংশ চালানো যায়নি। অন্য গান বাছুন।")}
  }});
 };
 var s=document.createElement("script");s.src="https://www.youtube.com/iframe_api";document.head.appendChild(s);
@@ -607,28 +606,34 @@ $("pp").onclick=function(){
   else{player.playVideo();$("pp").textContent="⏸ থামান"}
  }catch(e){}
 };
-/* শুরু-না-হওয়া পাহারাদার: রেডিও চালু কিন্তু ইউটিউবের গান ৮ সেকেন্ডেও না চললে নিজে আবার চেষ্টা করে, না হলে বড় বোতাম দেখায় */
-var KK={n:0,auto:0};
-function kickGo(){
- KK.n=0;$("kick").hidden=true;
- try{player.mute()}catch(e){}
- R.endedId="";CURV="";
- try{radioSched()}catch(e){}
- setTimeout(function(){try{player.playVideo()}catch(e){}},400);
+/* শুরু-না-হওয়া পাহারাদার: রেডিও চালু কিন্তু গান না চললে ৪-৫ সেকেন্ড পরপর নিজে আবার চেষ্টা করে। কারণ জানায়। */
+var KK={n:0,said:0,tries:0};
+function errWhy(){
+ var e=R.err;
+ if(!navigator.onLine)return "আপনার নেটওয়ার্কের সমস্যার কারণে লাইভে যুক্ত হতে পারিনি, দুঃখিত।";
+ if(e===100)return "ইউটিউবে এই গানটি এখন পাওয়া যাচ্ছে না, পরের গানে যাচ্ছি।";
+ if(e===101||e===150)return "ইউটিউব এই গান এখানে চালাতে দিচ্ছে না, পরের গানে যাচ্ছি।";
+ if(e===2||e===5)return "ইউটিউব প্লেয়ারে সমস্যা হচ্ছে, আবার চেষ্টা করছি।";
+ return "গান শুরু হতে দেরি হচ্ছে। আপনার নেটওয়ার্ক ধীর হতে পারে। আবার চেষ্টা করছি।";
 }
-$("kick").onclick=function(){kickGo();say("গান শুরু করার চেষ্টা হচ্ছে।")};
 setInterval(function(){
  try{
-  if(!ready||!started||!radioOn||mode!=="radio"||cur||!S){KK.n=0;KK.auto=0;$("kick").hidden=true;return}
+  if(!ready||!started||!radioOn||mode!=="radio"||cur||!S){KK.n=0;KK.tries=0;return}
   var st=player.getPlayerState();
   var busy=[].slice.call(document.querySelectorAll("audio")).some(function(a){return !a.paused&&!a.ended});
   try{if(window.speechSynthesis&&speechSynthesis.speaking)busy=true}catch(e){}
-  if(st===1||busy){KK.n=0;KK.auto=0;$("kick").hidden=true;return}
+  if(st===1||busy){if(KK.said){KK.said=0;say("গান চলছে।")}KK.n=0;KK.tries=0;R.err=0;return}
   KK.n++;
-  if(KK.n===4&&!KK.auto){KK.auto=1;try{player.mute()}catch(e){}R.endedId="";CURV="";radioSched()}
-  if(KK.n>=6&&$("kick").hidden){$("kick").hidden=false;say("গান এখনো শুরু হয়নি। নিচের বড় বোতাম চাপুন।")}
+  /* বাফারিং হলে আরও একটু ধৈর্য: ৮ সেকেন্ড; অন্য অবস্থায় ৪-৫ সেকেন্ড */
+  var lim=st===3?5:3;
+  if(KK.n>=lim){
+   KK.n=0;KK.tries++;
+   try{player.mute()}catch(e){}
+   R.endedId="";CURV="";radioSched();
+   if(KK.tries>=2&&Date.now()-KK.said>12000){KK.said=Date.now();say(errWhy())}
+  }
  }catch(e){}
-},2000);
+},1500);
 /* পাহারাদার: গান চলছে কিন্তু প্লেয়ার নিঃশব্দ থাকলে নিজে থেকে শব্দ চালু করে */
 setInterval(function(){
  try{
@@ -685,7 +690,8 @@ $("gok").onclick=function(){
  if(GT.tries>=5&&Date.now()<GT.until){gm("অনেকবার ভুল হয়েছে। এক মিনিট পরে চেষ্টা করুন।");say("এক মিনিট পরে চেষ্টা করুন।");return}
  admCred().then(function(cr){return pbk(v,cr.s).then(function(h){return h===cr.h?"adm":h})}).then(function(h){
   if(h==="adm"){GT.tries=0;GT.adm=v;$("gc").value="";gstep(4);$("g4n").value=NICK||"বিএলবিডি টিম";$("g4n").focus();say("অনুমোদিত। অনুষ্ঠান করবেন, নাকি স্টুডিও ব্যবস্থাপনা?");return null}
-  return sha(v).then(function(k){return cmGet("/creators/"+k+".json")}).then(function(c){
+  return sha(v).then(function(k){return cmGet("/admins/"+k+".json").then(function(ad){if(ad&&ad.n)return {adm:1,n:String(ad.n).slice(0,40)};return cmGet("/creators/"+k+".json")})}).then(function(c){
+   if(c&&c.adm){GT.tries=0;GT.adm=v;$("gc").value="";gstep(4);$("g4n").value=c.n||NICK||"বিএলবিডি টিম";$("g4n").focus();say("অনুমোদিত। অনুষ্ঠান করবেন, নাকি স্টুডিও ব্যবস্থাপনা?");return}
    if(c&&c.n){
     GT.tries=0;PRES={n:String(c.n).slice(0,40),ch:String(c.ch||"").slice(0,80),cu:String(c.u||"")};
     NICK=PRES.n;$("gate").hidden=true;$("gc").value="";goLive();return;
@@ -1397,6 +1403,13 @@ fetch("config.json",{cache:"no-cache"}).then(function(r){if(!r.ok)throw 0;return
  say("তৈরি। রেডিও শুনতে চালান বোতাম চাপুন।");
  setInterval(pull,5000);loadLib();setInterval(loadLib,120000);
  ensureSched().then(function(){$("bl").hidden=!!S||!fbBase()});
+ /* অ্যাডমিন অ্যাপ থেকে এলে: কোড আগেই যাচাই হয়েছে, তাই নিজে নিজে অ্যাডমিনের পথ খুলে দাও */
+ try{
+  if(/[?&]a=1(&|$)/.test(location.search)){
+   var av=sessionStorage.getItem("blbd_adm")||"";
+   if(av){sessionStorage.removeItem("blbd_adm");openGate();$("gy").click();$("gc").value=av;$("gok").click()}
+  }
+ }catch(e){}
 }).catch(function(){say("সেটিংস ফাইল লোড করা যায়নি। পাতাটি আবার খুলুন।")});
 })();
 </script>
