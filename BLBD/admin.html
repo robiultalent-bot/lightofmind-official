@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#080d1c">
+<link rel="manifest" href="manifest-admin.json">
+<title>আলো অ্যাডমিন</title>
+<style>
+:root{--bg:#080d1c;--card:#131c36;--gold:#f2b84b;--tx:#f3f0e6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Sans Bengali",system-ui,sans-serif;font-size:19px;line-height:1.7}
+.w{max-width:640px;margin:0 auto;padding:18px}
+h1{color:var(--gold);font-size:26px}
+.c{background:var(--card);border-radius:16px;padding:16px;margin:14px 0}
+button{display:block;width:100%;font:inherit;font-weight:700;background:var(--gold);color:#241a04;border:0;border-radius:12px;padding:16px;margin:10px 0 0}
+button.r{background:#e5675b;color:#fff}
+input{width:100%;font:inherit;padding:12px;border-radius:10px;border:2px solid #2a3a6b;background:#080d1c;color:var(--tx);margin-top:6px}
+button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>আলো অ্যাডমিন</h1>
+<div class="c" id="lk">
+ <label for="pw">পাসওয়ার্ড (এডমিন কোড)</label>
+ <input id="pw" type="password" inputmode="numeric" autocomplete="off">
+ <button id="ok" type="button">প্রবেশ</button>
+ <p id="m" role="status" aria-live="polite"></p>
+</div>
+<div class="c" id="mn" hidden>
+ <p id="hi" role="status" aria-live="polite">স্বাগতম। কী করবেন?</p>
+ <button id="b1" type="button">📻 রেডিও শুনুন ও লাইভ করুন</button>
+ <button id="b2" type="button">⚙️ স্টুডিও ব্যবস্থাপনা</button>
+ <button id="bx" type="button" class="r">বেরিয়ে যান</button>
+</div>
+</div>
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i)};
+var C={},tries=0,until=0,CODE="";
+function base(){var u=(C.firebaseUrl||"").replace(/\/+$/,"");return /^https:\/\/[a-z0-9.-]+\.(firebaseio\.com|firebasedatabase\.app)$/.test(u)?u+"/blbd":""}
+function hex(b){return Array.prototype.map.call(new Uint8Array(b),function(x){return ("0"+x.toString(16)).slice(-2)}).join("")}
+function pbk(pin,salt){
+ return crypto.subtle.importKey("raw",new TextEncoder().encode(String(pin)),"PBKDF2",false,["deriveBits"]).then(function(k){
+  return crypto.subtle.deriveBits({name:"PBKDF2",salt:new TextEncoder().encode(String(salt)),iterations:100000,hash:"SHA-256"},k,256);
+ }).then(hex);
+}
+function cred(){
+ var b=base();
+ if(!b)return Promise.resolve({s:C.adminSalt,h:C.adminHash});
+ return fetch(b+"/admin.json",{cache:"no-store"}).then(function(r){return r.json()}).then(function(a){
+  if(a&&typeof a.s==="string"&&typeof a.h==="string"&&a.s&&a.h)return {s:a.s,h:a.h};
+  return {s:C.adminSalt,h:C.adminHash};
+ }).catch(function(){return {s:C.adminSalt,h:C.adminHash}});
+}
+function sha(t){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(t)).then(hex)}
+function verify(v){
+ return cred().then(function(cr){return pbk(v,cr.s).then(function(h){return h===cr.h})}).then(function(ok){
+  if(ok)return true;
+  var b=base();if(!b)return false;
+  return sha(v).then(function(k){return fetch(b+"/admins/"+k+".json",{cache:"no-store"})}).then(function(r){return r.json()}).then(function(x){return !!(x&&x.n)});
+ });
+}
+function say(t){$("m").textContent=t}
+$("ok").onclick=function(){
+ var v=$("pw").value.trim();if(!v){say("পাসওয়ার্ড লিখুন।");return}
+ if(tries>=5&&Date.now()<until){say("অনেকবার ভুল হয়েছে। এক মিনিট পরে চেষ্টা করুন।");return}
+ verify(v).then(function(ok){
+  if(!ok){tries++;if(tries>=5)until=Date.now()+60000;$("pw").value="";say("পাসওয়ার্ড ঠিক নয়।");return}
+  CODE=v;$("pw").value="";$("lk").hidden=true;$("mn").hidden=false;$("b1").focus();
+ }).catch(function(){say("এখন যাচাই করা যাচ্ছে না। নেট দেখে আবার চেষ্টা করুন।")});
+};
+$("pw").addEventListener("keydown",function(e){if(e.key==="Enter")$("ok").click()});
+function go(u){try{sessionStorage.setItem("blbd_adm",CODE)}catch(e){}CODE="";location.href=u}
+$("b1").onclick=function(){go("index.html?a=1")};
+$("b2").onclick=function(){go("studio.html")};
+$("bx").onclick=function(){CODE="";$("mn").hidden=true;$("lk").hidden=false;$("pw").focus()};
+fetch("config.json",{cache:"no-cache"}).then(function(r){return r.json()}).then(function(d){C=d;$("pw").focus()}).catch(function(){say("সেটিংস লোড হয়নি। পাতাটি আবার খুলুন।")});
+try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}
+})();
+</script>
+</body>
+</html>
