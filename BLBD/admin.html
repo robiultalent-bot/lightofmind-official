@@ -23,6 +23,10 @@ button:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2
 <body>
 <div class="w">
 <h1>আলো অ্যাডমিন</h1>
+<div class="c" id="ib">
+ <button id="ins" type="button">📲 এই অ্যাপ ফোনে ইনস্টল করুন</button>
+ <p id="im" role="status" aria-live="polite"></p>
+</div>
 <div class="c" id="lk">
  <label for="pw">পাসওয়ার্ড (এডমিন কোড)</label>
  <input id="pw" type="password" inputmode="numeric" autocomplete="off">
@@ -65,6 +69,14 @@ function verify(v){
  });
 }
 function say(t){$("m").textContent=t}
+var DP=null;
+window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();DP=e});
+window.addEventListener("appinstalled",function(){DP=null;$("ib").hidden=true});
+try{if(window.matchMedia("(display-mode: standalone)").matches||navigator.standalone)$("ib").hidden=true}catch(e){}
+$("ins").onclick=function(){
+ if(DP){DP.prompt();DP.userChoice.then(function(c){$("im").textContent=c&&c.outcome==="accepted"?"ইনস্টল হচ্ছে। হোম স্ক্রিনে আলো অ্যাডমিন দেখবেন।":"ইনস্টল বাতিল হয়েছে।";DP=null})["catch"](function(){});return}
+ $("im").textContent="এখনই সরাসরি ইনস্টল করা যাচ্ছে না। কয়েক সেকেন্ড অপেক্ষা করে আবার চাপুন। না হলে ক্রোমের মেনু থেকে Add to Home screen বা Install app বেছে নিন।";
+};
 $("ok").onclick=function(){
  var v=$("pw").value.trim();if(!v){say("পাসওয়ার্ড লিখুন।");return}
  if(tries>=5&&Date.now()<until){say("অনেকবার ভুল হয়েছে। এক মিনিট পরে চেষ্টা করুন।");return}
