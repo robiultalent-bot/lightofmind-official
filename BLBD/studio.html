@@ -39,7 +39,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
  <div class="c"><h2>নতুন আবেদন</h2><div id="apps">লোড হচ্ছে...</div></div>
  <div class="c"><h2>অনুমোদিত ক্রিয়েটর</h2><div id="crs">লোড হচ্ছে...</div></div>
  <div class="c"><h2>সাম্প্রতিক কমেন্ট</h2><button id="cmr" type="button">নতুন করে লোড</button><div id="cms">লোড হচ্ছে...</div></div>
- <div class="c"><h2>গানের লাইব্রেরি</h2><p>ক্রিয়েটরদের চালানো গান। মুছলে তালিকা ও খোঁজা থেকে সরে যাবে, আর আবার জমা হবে না।</p><button id="lbr" type="button">নতুন করে লোড</button><div id="lbs">লোড হচ্ছে...</div></div>
+ <div class="c"><h2>গানের লাইব্রেরি</h2><p>ক্রিয়েটরদের চালানো গান। মুছলে তালিকা ও খোঁজা থেকে সরে যাবে, আর আবার জমা হবে না।</p><button id="lbr" type="button">নতুন করে লোড</button><button id="lbc" type="button" class="r">⚠️ সব জমা গান একবারে মুছুন</button><div id="lbs">লোড হচ্ছে...</div></div>
  <div class="c"><h2>ঘোষণা</h2>
   <label for="nt">ঘোষণার লেখা</label><textarea id="nt" maxlength="300"></textarea>
   <label for="nm">কত মিনিট দেখাবে</label><input id="nm" type="number" value="60" min="1" max="1440">
@@ -88,7 +88,22 @@ function admCred(){
  });
 }
 var MASTER=false;
-function showApp(m){MASTER=m;$("lk").hidden=true;$("app").hidden=false;$("cad").hidden=!m;$("cmy").hidden=!m;load();return true}
+
+/* ফায়ারবেসের ফ্রি সীমা শেষ হলে অ্যাডমিনকে সঙ্গে সঙ্গে জানানো */
+function fbWarn(t){
+ var b=document.getElementById("fbw");
+ if(!b){b=document.createElement("div");b.id="fbw";b.setAttribute("role","alert");b.style.cssText="background:#7a1d1d;color:#fff;padding:14px;margin:0 0 14px;border-radius:12px;line-height:1.7";document.body.insertBefore(b,document.body.firstChild)}
+ b.textContent="⚠️ ফায়ারবেস ডেটাবেসের ফ্রি সীমা শেষ হয়ে গেছে বা বন্ধ হয়ে গেছে। এখন লাইভ, অনুমোদন, কমেন্ট ও সময়সূচি কাজ নাও করতে পারে। করণীয়: ১) console.firebase.google.com এ গিয়ে Realtime Database → Usage দেখুন। ২) ফ্রি সীমা প্রতি মাসের শুরুতে নতুন হয়। ৩) এখনই চালু করতে Blaze (পে-অ্যাজ-ইউ-গো) প্ল্যানে যেতে হয়, তাতে কার্ড লাগে। গেলে আগে Budget alert দিয়ে খরচের সীমা বেঁধে নিন। সার্ভারের উত্তর: "+String(t||"").slice(0,80);
+}
+function fbHealth(){
+ var b=base();if(!b)return;
+ fetch(b+"/ping.json?shallow=true",{cache:"no-store"}).then(function(r){
+  if(r.ok){var w=document.getElementById("fbw");if(w)w.remove();return}
+  return r.text().then(function(t){if(r.status===402||r.status===429||/quota|payment|exceed|disabled|billing/i.test(t))fbWarn(r.status+" "+t)});
+ }).catch(function(){});
+}
+setInterval(fbHealth,300000);
+function showApp(m){fbHealth();MASTER=m;$("lk").hidden=true;$("app").hidden=false;$("cad").hidden=!m;$("cmy").hidden=!m;load();return true}
 function enter(v){
  return admCred().then(function(cr){
   return pbk(v,cr.s).then(function(h){
@@ -211,6 +226,7 @@ function libs(){
  });
 }
 $("lbr").onclick=libs;
+$("lbc").onclick=function(){if(!confirm("জমা থাকা সব গান মুছবেন?"))return;del("/lib").then(function(){return del("/libban")}).then(function(){st("সব জমা গান মোছা হয়েছে।");libs()})};
 $("cmr").onclick=comments;
 $("npok").onclick=function(){
  var a=$("np1").value.trim(),b=$("np2").value.trim();
