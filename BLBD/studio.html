@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>স্টুডিও ব্যবস্থাপনা</title>
+<link rel="manifest" href="manifest-admin.json">
+<meta name="theme-color" content="#080d1c">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 :root{--bg:#080d1c;--card:#131c36;--gold:#f2b84b;--tx:#f3f0e6}
 *{box-sizing:border-box}
@@ -36,6 +39,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
  <div class="c"><h2>নতুন আবেদন</h2><div id="apps">লোড হচ্ছে...</div></div>
  <div class="c"><h2>অনুমোদিত ক্রিয়েটর</h2><div id="crs">লোড হচ্ছে...</div></div>
  <div class="c"><h2>সাম্প্রতিক কমেন্ট</h2><button id="cmr" type="button">নতুন করে লোড</button><div id="cms">লোড হচ্ছে...</div></div>
+ <div class="c"><h2>গানের লাইব্রেরি</h2><p>ক্রিয়েটরদের চালানো গান। মুছলে তালিকা ও খোঁজা থেকে সরে যাবে, আর আবার জমা হবে না।</p><button id="lbr" type="button">নতুন করে লোড</button><div id="lbs">লোড হচ্ছে...</div></div>
  <div class="c"><h2>ঘোষণা</h2>
   <label for="nt">ঘোষণার লেখা</label><textarea id="nt" maxlength="300"></textarea>
   <label for="nm">কত মিনিট দেখাবে</label><input id="nm" type="number" value="60" min="1" max="1440">
@@ -67,8 +71,9 @@ function pbk(pin,salt){
  }).then(hex);
 }
 function get(p){return fetch(base()+p,{cache:"no-store"}).then(function(r){return r.json()}).catch(function(){return null})}
-function put(p,o){return fetch(base()+p,{method:"PUT",body:JSON.stringify(o)}).then(function(r){return r.ok})}
-function del(p){return fetch(base()+p,{method:"DELETE"}).then(function(r){return r.ok})}
+function jp(p){return /\.json(\?|$)/.test(p)?p:p+".json"}
+function put(p,o){return fetch(base()+jp(p),{method:"PUT",body:JSON.stringify(o)}).then(function(r){return r.ok})}
+function del(p){return fetch(base()+jp(p),{method:"DELETE"}).then(function(r){return r.ok})}
 function safeUrl(u){return /^https:\/\//.test(u||"")?u:""}
 function link(t,u){var a=el("a",t);if(safeUrl(u)){a.href=u;a.target="_blank";a.rel="noopener noreferrer"}return a}
 function when(ts){try{return new Date(ts).toLocaleString("bn-BD",{timeZone:"Asia/Dhaka"})}catch(e){return ""}}
@@ -96,7 +101,7 @@ $("pwok").onclick=function(){
   if(!ok){tries++;if(tries>=5)until=Date.now()+60000;$("pw").value="";alert("কোড ঠিক নয়।")}
  });
 };
-function load(){apps();creators();comments()}
+function load(){apps();creators();comments();libs()}
 
 function apps(){
  get("/apps.json").then(function(d){
@@ -160,6 +165,21 @@ function comments(){
   });
  });
 }
+function libs(){
+ get("/lib.json").then(function(d){
+  var box=$("lbs");box.textContent="";d=d||{};
+  var ks=Object.keys(d).sort(function(a,b){return ((d[b]||{}).ts||0)-((d[a]||{}).ts||0)}).slice(0,100);
+  if(!ks.length){box.textContent="লাইব্রেরিতে কোনো গান নেই।";return}
+  ks.forEach(function(k){
+   var x=d[k]||{},w=el("div");w.className="i";
+   w.appendChild(el("b",String(x.title||k)));w.appendChild(el("div",String(x.channel||"")));
+   var b=el("button","🗑️ গান মুছুন");b.type="button";b.className="r";
+   b.onclick=function(){put("/libban/"+k,1).then(function(){return del("/lib/"+k)}).then(function(){st("গান মোছা হয়েছে।");libs()})};
+   w.appendChild(b);box.appendChild(w);
+  });
+ });
+}
+$("lbr").onclick=libs;
 $("cmr").onclick=comments;
 $("npok").onclick=function(){
  var a=$("np1").value.trim(),b=$("np2").value.trim();
@@ -186,6 +206,7 @@ fetch("config.json",{cache:"no-cache"}).then(function(r){return r.json()}).then(
  var v="";try{v=sessionStorage.getItem("blbd_adm")||""}catch(e){}
  if(v){try{sessionStorage.removeItem("blbd_adm")}catch(e){}enter(v).then(function(ok){if(!ok)$("pw").focus()})}
 }).catch(function(){$("lk").textContent="সেটিংস ফাইল লোড হয়নি।"});
+try{if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}
 })();
 </script>
 </body>
